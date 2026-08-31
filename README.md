@@ -51,6 +51,10 @@ Somente valores públicos usam o prefixo `EXPO_PUBLIC_`. A publishable key permi
 Auth, mas o acesso aos dados continua limitado por grants e RLS. Nunca adicione secret keys ou a
 `service_role` neste repositório.
 
+O app valida a conectividade lendo somente o registro técnico `system_status/supabase`. Essa tabela
+não contém dados de usuários e sua política RLS permite apenas a leitura do estado técnico. Dados
+funcionais permanecem privados e sujeitos à identidade autenticada.
+
 ## Arquitetura e contribuição
 
 - [Arquitetura do aplicativo](docs/architecture.md)
