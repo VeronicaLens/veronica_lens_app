@@ -2,6 +2,7 @@
   "expo": {
     "name": "VeronicaLens",
     "slug": "veronica-lens",
+    "scheme": "veronicalens",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.veronicalens.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

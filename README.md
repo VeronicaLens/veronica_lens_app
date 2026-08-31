@@ -7,7 +7,7 @@ versionado e publicado independentemente da API.
 
 - Node.js 24 LTS
 - npm 11+
-- Expo Development Build ou ambiente Android compatível
+- Android Studio com Android SDK, emulador ou dispositivo físico configurado
 
 ## Configuração
 
@@ -19,16 +19,25 @@ npm start
 
 No PowerShell, copie o ambiente com `Copy-Item .env.example .env`.
 
-Para iniciar no Android:
+Para gerar, instalar e iniciar o development build Android sem Expo Go:
 
 ```bash
-npm run android
+npm run android:dev
 ```
+
+Na primeira execução, o Expo gera o projeto nativo Android por Continuous Native Generation. Nas
+execuções seguintes, mantenha o development build instalado e use `npm start` para iniciar o Metro.
+O identificador nativo é `com.veronicalens.app` e o scheme de deep link é `veronicalens`.
+
+Permissões de câmera e sensores serão declaradas quando cada funcionalidade for implementada. Isso
+evita solicitar acesso antes de existir uma necessidade funcional e mantém o princípio de menor
+privilégio.
 
 ## Scripts
 
 - `npm start`: inicia o Metro/Expo.
-- `npm run android`: inicia o fluxo Android.
+- `npm run android`: abre o app Android já disponível.
+- `npm run android:dev`: compila e instala o development build Android local.
 - `npm run lint`: executa o ESLint.
 - `npm run format`: formata o projeto.
 - `npm run typecheck`: valida o TypeScript.
