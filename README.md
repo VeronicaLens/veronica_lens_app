@@ -54,6 +54,7 @@ Auth, mas o acesso aos dados continua limitado por grants e RLS. Nunca adicione 
 ## Arquitetura e contribuição
 
 - [Arquitetura do aplicativo](docs/architecture.md)
+- [Ambientes e configuração pública](docs/environment.md)
 - [Convenções de Git](docs/git-conventions.md)
 
 Exemplo de branch e commit:
