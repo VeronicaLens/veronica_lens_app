@@ -58,6 +58,7 @@ funcionais permanecem privados e sujeitos à identidade autenticada.
 ## Arquitetura e contribuição
 
 - [Arquitetura do aplicativo](docs/architecture.md)
+- [Ambientes e configuração pública](docs/environment.md)
 - [Convenções de Git](docs/git-conventions.md)
 
 Exemplo de branch e commit:
