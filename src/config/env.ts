@@ -1,7 +1,5 @@
 export interface PublicEnvironment {
   apiUrl: string;
-  supabaseUrl: string;
-  supabasePublishableKey: string;
 }
 
 type PublicEnvSource = Record<string, string | undefined>;
@@ -19,8 +17,6 @@ function required(source: PublicEnvSource, key: string): string {
 export function parsePublicEnvironment(source: PublicEnvSource): PublicEnvironment {
   return {
     apiUrl: required(source, 'EXPO_PUBLIC_API_URL'),
-    supabaseUrl: required(source, 'EXPO_PUBLIC_SUPABASE_URL'),
-    supabasePublishableKey: required(source, 'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
   };
 }
 

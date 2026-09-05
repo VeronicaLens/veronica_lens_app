@@ -1,12 +1,12 @@
-import { getPublicEnvironment } from '../../config/env';
+import { getPublicEnvironment } from '../../config/env.ts';
 
 export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
+  public readonly status: number;
+
+  constructor(status: number, message: string) {
     super(message);
     this.name = 'ApiError';
+    this.status = status;
   }
 }
 
