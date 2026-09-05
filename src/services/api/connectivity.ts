@@ -1,14 +1,11 @@
-import type { ApiSuccess } from '../../types/api.ts';
+import type {
+  SupabaseConnectivity,
+  SupabaseConnectivityResponse,
+} from '../../types/generated/types.gen.ts';
 
 import { apiRequest } from './client.ts';
 
-export interface SupabaseConnectivity {
-  provider: 'supabase';
-  status: string;
-}
-
-type ConnectivityResponse = ApiSuccess<SupabaseConnectivity>;
-type ConnectivityRequest = (path: string) => Promise<ConnectivityResponse>;
+type ConnectivityRequest = (path: string) => Promise<SupabaseConnectivityResponse>;
 
 export async function checkSupabaseConnectivity(
   request: ConnectivityRequest = apiRequest,

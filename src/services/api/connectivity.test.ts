@@ -25,7 +25,7 @@ describe('checkSupabaseConnectivity', () => {
   it('rejects an invalid backend response', async () => {
     await assert.rejects(
       checkSupabaseConnectivity(async () => ({
-        data: { provider: 'supabase', status: 42 as unknown as string },
+        data: { provider: 'supabase', status: 42 as unknown as 'available' },
       })),
       new Error('Não foi possível validar a conexão segura com o Supabase.'),
     );
