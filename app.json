@@ -23,6 +23,16 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-secure-store", "expo-font", "@react-native-vector-icons/lucide"]
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "@react-native-vector-icons/lucide",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Permita que o VeronicaLens use o movimento do aparelho para alinhar o guia celeste ao céu."
+        }
+      ]
+    ]
   }
 }
