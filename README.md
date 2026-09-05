@@ -27,8 +27,8 @@ rede local bloquear a conexão, reinicie o servidor usando o tunnel:
 npm run start:go:tunnel
 ```
 
-O tunnel resolve a conexão com o Metro, mas não torna serviços locais como API ou Supabase
-automaticamente acessíveis pelo aparelho. Nesses casos, configure uma URL alcançável pelo celular,
+O tunnel resolve a conexão com o Metro, mas não torna a API local automaticamente acessível pelo
+aparelho. Nesse caso, configure uma URL alcançável pelo celular,
 como o IP do computador na rede, e libere somente as portas necessárias no firewall.
 
 O Expo Go é suficiente para a fase atual, enquanto o projeto usar bibliotecas presentes no Expo
@@ -64,13 +64,13 @@ privilégio.
 
 ## Ambiente
 
-Somente valores públicos usam o prefixo `EXPO_PUBLIC_`. A publishable key permite usar Supabase
-Auth, mas o acesso aos dados continua limitado por grants e RLS. Nunca adicione secret keys ou a
-`service_role` neste repositório.
+O aplicativo recebe somente `EXPO_PUBLIC_API_URL`. Nenhuma URL ou chave do Supabase deve ser
+configurada neste repositório, pois autenticação, regras de negócio e dados são acessados por meio
+da API.
 
-O app valida a conectividade lendo somente o registro técnico `system_status/supabase`. Essa tabela
-não contém dados de usuários e sua política RLS permite apenas a leitura do estado técnico. Dados
-funcionais permanecem privados e sujeitos à identidade autenticada.
+O app valida a conectividade chamando a API. O backend lê o registro técnico
+`system_status/supabase` e devolve apenas um estado seguro, sem expor credenciais ou detalhes do
+provedor ao dispositivo.
 
 ## Arquitetura e contribuição
 

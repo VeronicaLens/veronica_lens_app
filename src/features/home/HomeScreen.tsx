@@ -3,15 +3,14 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getSupabaseClient } from '../../config/supabase';
-import { checkSupabaseConnectivity } from '../../services/supabase/connectivity';
+import { checkSupabaseConnectivity } from '../../services/api/connectivity';
 import { colors } from '../../theme/colors';
 
 export function HomeScreen() {
   const [connectionStatus, setConnectionStatus] = useState('Validando conexão segura...');
 
   useEffect(() => {
-    checkSupabaseConnectivity(getSupabaseClient())
+    checkSupabaseConnectivity()
       .then(({ status }) => setConnectionStatus(`Supabase: ${status}`))
       .catch((error: unknown) => {
         setConnectionStatus(
