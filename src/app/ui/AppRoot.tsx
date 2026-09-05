@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getRecoveryAccessToken, useAuthSession } from '../../features/auth/index.ts';
 import { AuthPage } from '../../pages/auth/index.ts';
 import { HomePage } from '../../pages/home/index.ts';
+import { ProfilePage } from '../../pages/profile/index.ts';
 import { theme } from '../../shared/config/index.ts';
 
 export function AppRoot() {
@@ -20,6 +21,8 @@ export function AppRoot() {
     SpaceGrotesk_700Bold,
   });
   const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
+  const [authenticatedPage, setAuthenticatedPage] = useState<'home' | 'profile'>('home');
+  const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
     void Linking.getInitialURL().then((url) => setRecoveryAccessToken(getRecoveryAccessToken(url)));
@@ -39,11 +42,23 @@ export function AppRoot() {
         <View className="flex-1 items-center justify-center bg-canvas">
           <ActivityIndicator color={theme.colors.primary} size="large" />
         </View>
+      ) : auth.status === 'authenticated' && auth.session && authenticatedPage === 'profile' ? (
+        <ProfilePage
+          accessToken={auth.session.accessToken}
+          email={auth.session.user.email}
+          onBack={() => setAuthenticatedPage('home')}
+          onSaved={(profile) => setProfileDisplayName(profile.displayName)}
+        />
       ) : auth.status === 'authenticated' && auth.session ? (
         <HomePage
-          displayName={auth.session.user.displayName}
+          displayName={profileDisplayName ?? auth.session.user.displayName}
           email={auth.session.user.email}
-          onLogout={auth.logout}
+          onLogout={async () => {
+            setAuthenticatedPage('home');
+            setProfileDisplayName(null);
+            await auth.logout();
+          }}
+          onOpenProfile={() => setAuthenticatedPage('profile')}
         />
       ) : (
         <AuthPage

@@ -8,10 +8,11 @@ import { Button } from '../../../shared/ui/index.ts';
 interface HomePageProps {
   displayName: string | null;
   email: string;
+  onOpenProfile(): void;
   onLogout(): Promise<void>;
 }
 
-export function HomePage({ displayName, email, onLogout }: HomePageProps) {
+export function HomePage({ displayName, email, onOpenProfile, onLogout }: HomePageProps) {
   const [connectionStatus, setConnectionStatus] = useState('Validando conexão segura...');
 
   useEffect(() => {
@@ -55,6 +56,8 @@ export function HomePage({ displayName, email, onLogout }: HomePageProps) {
         </View>
 
         <View className="w-full">
+          <Button label="Perfil e preferências" onPress={onOpenProfile} />
+          <View className="h-3" />
           <Button label="Sair da conta" onPress={() => void onLogout()} variant="secondary" />
         </View>
       </View>

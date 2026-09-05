@@ -46,7 +46,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/shared/config/env.test.ts src/shared/api/connectivity.test.ts src/features/auth/api/auth-api.test.ts src/features/auth/lib/recovery-link.test.ts src/features/auth/model/session-storage.test.ts src/features/auth/model/session-refresh.test.ts",
+    "test": "node --test --experimental-strip-types src/shared/config/env.test.ts src/shared/api/connectivity.test.ts src/features/auth/api/auth-api.test.ts src/features/auth/lib/recovery-link.test.ts src/features/auth/model/session-storage.test.ts src/features/auth/model/session-refresh.test.ts src/features/profile/api/profile-api.test.ts",
     "contract:generate": "openapi-ts",
     "contract:check": "npm run contract:generate && node scripts/check-generated-contract.mjs",
     "bundle:android": "expo export --platform android --output-dir dist",

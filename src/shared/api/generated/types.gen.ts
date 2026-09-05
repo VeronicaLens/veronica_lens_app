@@ -45,6 +45,39 @@ export type User = {
     updatedAt: string;
 };
 
+export type MeasurementUnit = 'metric' | 'imperial';
+
+export type AppLanguage = 'pt-BR' | 'en';
+
+export type Profile = {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    locationName: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    notificationsEnabled: boolean;
+    measurementUnit: MeasurementUnit;
+    language: AppLanguage;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type UpdateProfileRequest = {
+    displayName?: string | null;
+    avatarUrl?: string | null;
+    locationName?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    notificationsEnabled?: boolean;
+    measurementUnit?: MeasurementUnit;
+    language?: AppLanguage;
+};
+
+export type ProfileResponse = {
+    data: Profile;
+};
+
 export type CelestialObjectType = 'moon' | 'planet' | 'star' | 'constellation' | 'deep_sky_object';
 
 export type CelestialObject = {
@@ -390,3 +423,61 @@ export type UpdatePasswordResponses = {
 };
 
 export type UpdatePasswordResponse = UpdatePasswordResponses[keyof UpdatePasswordResponses];
+
+export type GetProfileData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/profile';
+};
+
+export type GetProfileErrors = {
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Profile was not found.
+     */
+    404: ErrorResponse;
+};
+
+export type GetProfileError = GetProfileErrors[keyof GetProfileErrors];
+
+export type GetProfileResponses = {
+    /**
+     * Profile loaded.
+     */
+    200: ProfileResponse;
+};
+
+export type GetProfileResponse = GetProfileResponses[keyof GetProfileResponses];
+
+export type UpdateProfileData = {
+    body: UpdateProfileRequest;
+    path?: never;
+    query?: never;
+    url: '/profile';
+};
+
+export type UpdateProfileErrors = {
+    /**
+     * Invalid profile data.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type UpdateProfileError = UpdateProfileErrors[keyof UpdateProfileErrors];
+
+export type UpdateProfileResponses = {
+    /**
+     * Profile updated.
+     */
+    200: ProfileResponse;
+};
+
+export type UpdateProfileResponse = UpdateProfileResponses[keyof UpdateProfileResponses];
