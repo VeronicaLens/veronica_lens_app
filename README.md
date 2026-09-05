@@ -59,6 +59,8 @@ privilégio.
 - `npm run format`: formata o projeto.
 - `npm run typecheck`: valida o TypeScript.
 - `npm test`: executa os testes.
+- `npm run contract:generate`: gera os tipos TypeScript a partir do snapshot OpenAPI.
+- `npm run contract:check`: confirma que os tipos gerados estão atualizados.
 - `npm run bundle:android`: valida o bundle Android.
 - `npm run validate`: executa todos os checks do CI.
 
@@ -75,6 +77,7 @@ provedor ao dispositivo.
 ## Arquitetura e contribuição
 
 - [Arquitetura do aplicativo](docs/architecture.md)
+- [Contrato HTTP consumido](docs/api-contract.md)
 - [Ambientes e configuração pública](docs/environment.md)
 - [Convenções de Git](docs/git-conventions.md)
 

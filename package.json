@@ -16,6 +16,7 @@
     "react-native-safe-area-context": "~5.7.0"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
     "@types/node": "26.4.0",
     "@types/react": "~19.2.2",
     "eslint": "9.39.5",
@@ -38,8 +39,13 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types src/config/env.test.ts src/services/api/connectivity.test.ts",
+    "contract:generate": "openapi-ts",
+    "contract:check": "npm run contract:generate && node scripts/check-generated-contract.mjs",
     "bundle:android": "expo export --platform android --output-dir dist",
-    "validate": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run bundle:android"
+    "validate": "npm run contract:check && npm run lint && npm run format:check && npm run typecheck && npm run test && npm run bundle:android"
+  },
+  "overrides": {
+    "js-yaml": "4.3.2"
   },
   "private": true
 }
