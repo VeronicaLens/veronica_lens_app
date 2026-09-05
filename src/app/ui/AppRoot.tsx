@@ -12,6 +12,7 @@ import { AuthPage } from '../../pages/auth/index.ts';
 import { HomePage } from '../../pages/home/index.ts';
 import { ProfilePage } from '../../pages/profile/index.ts';
 import { theme } from '../../shared/config/index.ts';
+import { BottomNavigation, type AuthenticatedPage } from '../../widgets/bottom-navigation/index.ts';
 
 export function AppRoot() {
   const auth = useAuthSession();
@@ -21,7 +22,7 @@ export function AppRoot() {
     SpaceGrotesk_700Bold,
   });
   const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
-  const [authenticatedPage, setAuthenticatedPage] = useState<'home' | 'profile'>('home');
+  const [authenticatedPage, setAuthenticatedPage] = useState<AuthenticatedPage>('home');
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,24 +43,27 @@ export function AppRoot() {
         <View className="flex-1 items-center justify-center bg-canvas">
           <ActivityIndicator color={theme.colors.primary} size="large" />
         </View>
-      ) : auth.status === 'authenticated' && auth.session && authenticatedPage === 'profile' ? (
-        <ProfilePage
-          accessToken={auth.session.accessToken}
-          email={auth.session.user.email}
-          onBack={() => setAuthenticatedPage('home')}
-          onSaved={(profile) => setProfileDisplayName(profile.displayName)}
-        />
       ) : auth.status === 'authenticated' && auth.session ? (
-        <HomePage
-          displayName={profileDisplayName ?? auth.session.user.displayName}
-          email={auth.session.user.email}
-          onLogout={async () => {
-            setAuthenticatedPage('home');
-            setProfileDisplayName(null);
-            await auth.logout();
-          }}
-          onOpenProfile={() => setAuthenticatedPage('profile')}
-        />
+        <View className="flex-1 bg-canvas">
+          {authenticatedPage === 'profile' ? (
+            <ProfilePage
+              accessToken={auth.session.accessToken}
+              email={auth.session.user.email}
+              onLogout={async () => {
+                setAuthenticatedPage('home');
+                setProfileDisplayName(null);
+                await auth.logout();
+              }}
+              onSaved={(profile) => setProfileDisplayName(profile.displayName)}
+            />
+          ) : (
+            <HomePage
+              displayName={profileDisplayName ?? auth.session.user.displayName}
+              email={auth.session.user.email}
+            />
+          )}
+          <BottomNavigation activePage={authenticatedPage} onNavigate={setAuthenticatedPage} />
+        </View>
       ) : (
         <AuthPage
           key={recoveryAccessToken ?? 'authentication'}
