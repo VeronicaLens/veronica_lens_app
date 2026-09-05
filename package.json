@@ -7,11 +7,15 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "expo": "~57.0.18",
-    "expo-dev-client": "~57.0.16",
+    "@supabase/supabase-js": "2.112.4",
+    "expo": "~57.0.20",
+    "expo-dev-client": "~57.0.18",
+    "expo-sqlite": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-url-polyfill": "4.0.0"
   },
   "devDependencies": {
     "@types/node": "26.4.0",
@@ -35,7 +39,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/config/env.test.ts",
+    "test": "node --test --experimental-strip-types src/config/env.test.ts src/services/supabase/connectivity.test.ts",
     "bundle:android": "expo export --platform android --output-dir dist",
     "validate": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run bundle:android"
   },
