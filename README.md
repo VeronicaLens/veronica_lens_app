@@ -7,28 +7,54 @@ versionado e publicado independentemente da API.
 
 - Node.js 24 LTS
 - npm 11+
-- Expo Development Build ou ambiente Android compatível
+- Dispositivo Android físico com Expo Go compatível com o Expo SDK 57
+- Computador e dispositivo na mesma rede para conexão por LAN
 
 ## Configuração
 
 ```bash
 npm ci
 cp .env.example .env
-npm start
+npm run start:go
 ```
 
 No PowerShell, copie o ambiente com `Copy-Item .env.example .env`.
 
-Para iniciar no Android:
+Abra o Expo Go no aparelho, selecione **Scan QR code** e leia o código exibido no terminal. Se a
+rede local bloquear a conexão, reinicie o servidor usando o tunnel:
 
 ```bash
-npm run android
+npm run start:go:tunnel
 ```
+
+O tunnel resolve a conexão com o Metro, mas não torna serviços locais como API ou Supabase
+automaticamente acessíveis pelo aparelho. Nesses casos, configure uma URL alcançável pelo celular,
+como o IP do computador na rede, e libere somente as portas necessárias no firewall.
+
+O Expo Go é suficiente para a fase atual, enquanto o projeto usar bibliotecas presentes no Expo
+SDK ou bibliotecas sem código nativo customizado. Alterações nativas, notificações push remotas e
+bibliotecas nativas não incluídas no Expo Go exigirão um development build próprio no futuro.
+
+Quando esse momento chegar, o build Android poderá ser gerado com:
+
+```bash
+npm run android:dev
+```
+
+Esse comando exige Android Studio/SDK para build local ou poderá ser substituído por EAS Build. O
+identificador nativo reservado é `com.veronicalens.app` e o scheme de deep link é `veronicalens`.
+
+Permissões de câmera e sensores serão declaradas quando cada funcionalidade for implementada. Isso
+evita solicitar acesso antes de existir uma necessidade funcional e mantém o princípio de menor
+privilégio.
 
 ## Scripts
 
 - `npm start`: inicia o Metro/Expo.
-- `npm run android`: inicia o fluxo Android.
+- `npm run start:go`: inicia explicitamente para o Expo Go.
+- `npm run start:go:tunnel`: inicia para o Expo Go usando tunnel.
+- `npm run android`: abre o app Android já disponível.
+- `npm run android:dev`: compila e instala o development build Android local.
 - `npm run lint`: executa o ESLint.
 - `npm run format`: formata o projeto.
 - `npm run typecheck`: valida o TypeScript.

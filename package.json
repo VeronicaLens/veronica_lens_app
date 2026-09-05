@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "expo": "~57.0.18",
+    "expo-dev-client": "~57.0.16",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3"
@@ -24,7 +25,10 @@
   },
   "scripts": {
     "start": "expo start",
+    "start:go": "expo start --go",
+    "start:go:tunnel": "expo start --go --tunnel",
     "android": "expo start --android",
+    "android:dev": "expo run:android",
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --max-warnings=0",
