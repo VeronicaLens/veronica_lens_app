@@ -25,9 +25,11 @@ repositório backend.
 
 ```text
 src/
-|- config/       configuração pública validada
-|- features/     telas e casos de uso agrupados por funcionalidade
-|- services/     integração HTTP exclusiva com a API
-|- theme/        tokens visuais
-`- types/        contratos TypeScript do aplicativo
+|- app/          inicialização e providers globais
+|- pages/        composição das telas
+|- features/     casos de uso e estado por funcionalidade
+`- shared/       API, configuração, contrato gerado e componentes reutilizáveis
 ```
+
+As dependências seguem `app -> pages -> features -> shared`. Veja as regras detalhadas e a
+estratégia de estilos em [Arquitetura frontend com FSD e NativeWind](frontend-architecture.md).

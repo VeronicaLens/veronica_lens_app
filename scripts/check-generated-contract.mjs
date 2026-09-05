@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-const result = spawnSync('git', ['status', '--porcelain', '--', 'src/types/generated'], {
+const result = spawnSync('git', ['status', '--porcelain', '--', 'src/shared/api/generated'], {
   encoding: 'utf8',
 });
 

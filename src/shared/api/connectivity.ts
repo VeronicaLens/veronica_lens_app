@@ -1,7 +1,4 @@
-import type {
-  SupabaseConnectivity,
-  SupabaseConnectivityResponse,
-} from '../../types/generated/types.gen.ts';
+import type { SupabaseConnectivity, SupabaseConnectivityResponse } from './generated/types.gen.ts';
 
 import { apiRequest } from './client.ts';
 
