@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,7 +20,7 @@ import { Button, TextField } from '../../../shared/ui/index.ts';
 interface ProfilePageProps {
   accessToken: string;
   email: string;
-  onBack(): void;
+  onLogout(): Promise<void>;
   onSaved(profile: Profile): void;
 }
 
@@ -32,7 +33,7 @@ function PreferenceRow({
   disabled = false,
   onChange,
 }: {
-  icon: string;
+  icon: LucideIconName;
   iconColor: string;
   title: string;
   subtitle: string;
@@ -42,9 +43,9 @@ function PreferenceRow({
 }) {
   return (
     <View className="min-h-[62px] flex-row items-center gap-3 rounded-control bg-surface px-4 py-3">
-      <Text className="w-5 text-center text-base" style={{ color: iconColor }}>
-        {icon}
-      </Text>
+      <View className="w-5 items-center">
+        <Lucide color={iconColor} name={icon} size={17} />
+      </View>
       <View className="flex-1 gap-1">
         <Text className="font-label text-[13px] text-ink">{title}</Text>
         <Text className="font-body text-[10px] text-muted">{subtitle}</Text>
@@ -62,43 +63,17 @@ function PreferenceRow({
   );
 }
 
-function MenuRow({ label }: { label: string }) {
+function MenuRow({ icon, label }: { icon: LucideIconName; label: string }) {
   return (
     <View
       accessibilityLabel={`${label}. Disponível em breve.`}
       accessibilityState={{ disabled: true }}
       className="min-h-[48px] flex-row items-center rounded-control bg-surface px-4"
     >
-      <Text className="flex-1 font-body text-xs text-ink">{label}</Text>
-      <Text className="font-body text-lg text-muted">›</Text>
+      <Lucide color={theme.colors.muted} name={icon} size={16} />
+      <Text className="ml-3 flex-1 font-body text-xs text-ink">{label}</Text>
+      <Lucide color={theme.colors.muted} name="chevron-right" size={16} />
     </View>
-  );
-}
-
-function NavigationItem({
-  icon,
-  label,
-  active = false,
-  onPress,
-}: {
-  icon: string;
-  label: string;
-  active?: boolean;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: !onPress, selected: active }}
-      className="flex-1 items-center gap-1 py-2"
-      disabled={!onPress}
-      onPress={onPress}
-    >
-      <Text className={`text-base ${active ? 'text-accent' : 'text-muted'}`}>{icon}</Text>
-      <Text className={`font-body text-[9px] ${active ? 'text-accent' : 'text-muted'}`}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -125,7 +100,7 @@ function Choice<T extends string>({
   );
 }
 
-export function ProfilePage({ accessToken, email, onBack, onSaved }: ProfilePageProps) {
+export function ProfilePage({ accessToken, email, onLogout, onSaved }: ProfilePageProps) {
   const { profile, loading, saving, error, load, save } = useProfile(accessToken);
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -137,6 +112,7 @@ export function ProfilePage({ accessToken, email, onBack, onSaved }: ProfilePage
   const [language, setLanguage] = useState<AppLanguage>('pt-BR');
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -203,7 +179,7 @@ export function ProfilePage({ accessToken, email, onBack, onSaved }: ProfilePage
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerClassName="gap-7 px-5 pb-28 pt-5"
+          contentContainerClassName="gap-7 px-5 pb-8 pt-5"
           keyboardShouldPersistTaps="handled"
         >
           <Text accessibilityRole="header" className="font-display text-[28px] text-ink">
@@ -322,9 +298,10 @@ export function ProfilePage({ accessToken, email, onBack, onSaved }: ProfilePage
                 </View>
                 <Pressable
                   accessibilityRole="button"
-                  className="min-w-[66px] items-center rounded-pill bg-[#292354] px-4 py-2 active:opacity-80"
+                  className="min-w-[76px] flex-row items-center justify-center gap-2 rounded-pill bg-[#292354] px-4 py-2 active:opacity-80"
                   onPress={() => setEditing(true)}
                 >
+                  <Lucide color={theme.colors.accent} name="pencil" size={12} />
                   <Text className="font-label text-[10px] text-accent">Editar</Text>
                 </Pressable>
               </View>
@@ -333,14 +310,14 @@ export function ProfilePage({ accessToken, email, onBack, onSaved }: ProfilePage
                 <Text className="font-label text-base text-ink">Preferências</Text>
                 <PreferenceRow
                   disabled
-                  icon="◐"
+                  icon="moon"
                   iconColor={theme.colors.accent}
                   title="Modo noturno"
                   subtitle="Preservar visão noturna"
                   value
                 />
                 <PreferenceRow
-                  icon="◇"
+                  icon="bell"
                   iconColor={theme.colors.info}
                   title="Notificações"
                   subtitle="Eventos e janelas ideais"
@@ -348,7 +325,7 @@ export function ProfilePage({ accessToken, email, onBack, onSaved }: ProfilePage
                   onChange={(value) => void persistNotifications(value)}
                 />
                 <PreferenceRow
-                  icon="⌖"
+                  icon="map-pin"
                   iconColor={theme.colors.info}
                   title="Localização"
                   subtitle={profile.locationName ?? 'Usar durante observação'}
@@ -370,23 +347,34 @@ export function ProfilePage({ accessToken, email, onBack, onSaved }: ProfilePage
 
               <View className="gap-3">
                 <Text className="font-label text-base text-ink">Conta e privacidade</Text>
-                <MenuRow label="Dados e privacidade" />
-                <MenuRow label="Permissões do dispositivo" />
-                <MenuRow label="Sobre o VeronicaLens" />
+                <MenuRow icon="shield-check" label="Dados e privacidade" />
+                <MenuRow icon="smartphone" label="Permissões do dispositivo" />
+                <MenuRow icon="info" label="Sobre o VeronicaLens" />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: loggingOut, disabled: loggingOut }}
+                  className="mt-2 min-h-12 flex-row items-center justify-center gap-2 rounded-pill border border-border bg-surface active:opacity-75"
+                  disabled={loggingOut}
+                  onPress={() => {
+                    setLoggingOut(true);
+                    void onLogout()
+                      .catch(() => undefined)
+                      .finally(() => setLoggingOut(false));
+                  }}
+                >
+                  {loggingOut ? (
+                    <ActivityIndicator color={theme.colors.event} />
+                  ) : (
+                    <>
+                      <Lucide color={theme.colors.event} name="log-out" size={17} />
+                      <Text className="font-label text-xs text-event">Sair da conta</Text>
+                    </>
+                  )}
+                </Pressable>
               </View>
             </>
           )}
         </ScrollView>
-
-        {!editing && (
-          <View className="absolute inset-x-0 bottom-0 flex-row border-t border-border bg-surface px-2 pb-1 pt-1">
-            <NavigationItem icon="⌂" label="Início" onPress={onBack} />
-            <NavigationItem icon="✦" label="Explorar" />
-            <NavigationItem icon="◉" label="Câmera" />
-            <NavigationItem icon="◇" label="Aprender" />
-            <NavigationItem active icon="○" label="Perfil" />
-          </View>
-        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

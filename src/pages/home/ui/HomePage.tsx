@@ -3,16 +3,12 @@ import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { checkSupabaseConnectivity } from '../../../shared/api/index.ts';
-import { Button } from '../../../shared/ui/index.ts';
-
 interface HomePageProps {
   displayName: string | null;
   email: string;
-  onOpenProfile(): void;
-  onLogout(): Promise<void>;
 }
 
-export function HomePage({ displayName, email, onOpenProfile, onLogout }: HomePageProps) {
+export function HomePage({ displayName, email }: HomePageProps) {
   const [connectionStatus, setConnectionStatus] = useState('Validando conexão segura...');
 
   useEffect(() => {
@@ -27,7 +23,7 @@ export function HomePage({ displayName, email, onOpenProfile, onLogout }: HomePa
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
-      <View className="flex-1 justify-between px-6 py-8">
+      <View className="flex-1 px-6 py-8">
         <View className="gap-8">
           <View className="gap-2">
             <Text className="font-label text-[11px] uppercase tracking-[2px] text-accent">
@@ -53,12 +49,6 @@ export function HomePage({ displayName, email, onOpenProfile, onLogout }: HomePa
               </Text>
             </View>
           </View>
-        </View>
-
-        <View className="w-full">
-          <Button label="Perfil e preferências" onPress={onOpenProfile} />
-          <View className="h-3" />
-          <Button label="Sair da conta" onPress={() => void onLogout()} variant="secondary" />
         </View>
       </View>
     </SafeAreaView>

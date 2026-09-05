@@ -23,6 +23,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-secure-store", "expo-font"]
+    "plugins": ["expo-secure-store", "expo-font", "@react-native-vector-icons/lucide"]
   }
 }
