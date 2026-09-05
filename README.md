@@ -77,7 +77,9 @@ provedor ao dispositivo.
 ## Arquitetura e contribuição
 
 - [Arquitetura do aplicativo](docs/architecture.md)
+- [Arquitetura frontend com FSD e NativeWind](docs/frontend-architecture.md)
 - [Contrato HTTP consumido](docs/api-contract.md)
+- [Autenticação e sessão segura](docs/authentication.md)
 - [Ambientes e configuração pública](docs/environment.md)
 - [Convenções de Git](docs/git-conventions.md)
 
