@@ -12,6 +12,7 @@ import {
   cameraFailureMessage,
   classifyCameraFailure,
 } from '../model/camera-capture.ts';
+import { detectCameraCapabilities, type CameraCapabilities } from '../model/camera-capabilities.ts';
 
 export interface CapturedPhoto {
   uri: string;
@@ -23,17 +24,26 @@ export interface CameraCaptureHandle {
 
 interface CameraCaptureViewProps {
   active: boolean;
+  onCapabilitiesChange?(capabilities: CameraCapabilities | null): void;
   onError(message: string): void;
   onPreviewReady(): void;
 }
 
 export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureViewProps>(
-  function CameraCaptureView({ active, onError, onPreviewReady }, forwardedRef) {
+  function CameraCaptureView(
+    { active, onCapabilitiesChange, onError, onPreviewReady },
+    forwardedRef,
+  ) {
     const cameraRef = useRef<CameraRef>(null);
     const device = useCameraDevice('back');
     const photoOutput = usePhotoOutput({ quality: 0.92, qualityPrioritization: 'balanced' });
     const [previewReady, setPreviewReady] = useState(false);
+    const onCapabilitiesChangeRef = useRef(onCapabilitiesChange);
     const onErrorRef = useRef(onError);
+
+    useEffect(() => {
+      onCapabilitiesChangeRef.current = onCapabilitiesChange;
+    }, [onCapabilitiesChange]);
 
     useEffect(() => {
       onErrorRef.current = onError;
@@ -48,6 +58,16 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
       );
       return () => clearTimeout(timeout);
     }, [device]);
+
+    useEffect(() => {
+      if (!device) {
+        onCapabilitiesChangeRef.current?.(null);
+        return;
+      }
+
+      const controller = previewReady ? cameraRef.current?.controller : undefined;
+      onCapabilitiesChangeRef.current?.(detectCameraCapabilities(device, controller));
+    }, [device, previewReady]);
 
     useImperativeHandle(
       forwardedRef,
@@ -78,7 +98,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
       <Camera
         ref={cameraRef}
         device={device}
-        enableNativeTapToFocusGesture
+        enableNativeTapToFocusGesture={device.supportsFocusMetering}
         isActive={active}
         onError={(error) => onError(cameraFailureMessage(error))}
         onPreviewStarted={() => {
