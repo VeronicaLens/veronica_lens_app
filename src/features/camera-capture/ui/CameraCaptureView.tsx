@@ -1,5 +1,6 @@
 import {
   Camera,
+  VisionCamera,
   useCameraDevice,
   usePhotoOutput,
   type CameraRef,
@@ -13,9 +14,16 @@ import {
   classifyCameraFailure,
 } from '../model/camera-capture.ts';
 import { detectCameraCapabilities, type CameraCapabilities } from '../model/camera-capabilities.ts';
+import {
+  applyAssistedCapturePlan,
+  createAssistedCapturePlan,
+  createAstroPhotoMetadata,
+  type AstroPhotoMetadata,
+} from '../model/assisted-capture.ts';
 
 export interface CapturedPhoto {
   uri: string;
+  metadata: AstroPhotoMetadata;
 }
 
 export interface CameraCaptureHandle {
@@ -79,11 +87,31 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
           }
 
           try {
+            const controller = cameraRef.current.controller;
+            const capabilities = detectCameraCapabilities(device, controller);
+            const plan = createAssistedCapturePlan(capabilities);
+            const parameters = await applyAssistedCapturePlan(plan, {
+              meterCenter: async (modes) => {
+                const point = VisionCamera.createNormalizedMeteringPoint(0.5, 0.5);
+                await controller.focusTo(point, {
+                  modes,
+                  responsiveness: 'snappy',
+                  adaptiveness: 'continuous',
+                  autoResetAfter: 5,
+                });
+              },
+              setExposureBias: (value) => controller.setExposureBias(value),
+              setManualExposure: (exposureTimeSeconds, iso) =>
+                controller.setExposureLocked(exposureTimeSeconds, iso),
+            });
             const { filePath } = await photoOutput.capturePhotoToFile(
               { enableShutterSound: true, flashMode: 'off' },
               {},
             );
-            return { uri: `file://${filePath}` };
+            return {
+              uri: `file://${filePath}`,
+              metadata: createAstroPhotoMetadata(capabilities, parameters),
+            };
           } catch (error) {
             throw new CameraCaptureFailure(classifyCameraFailure(error), error);
           }

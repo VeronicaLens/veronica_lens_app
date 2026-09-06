@@ -19,7 +19,10 @@ import {
 import {
   CameraCaptureView,
   cameraFailureMessage,
+  createAssistedCapturePlan,
+  describeAppliedCapture,
   useCameraAccess,
+  type CameraCapabilities,
   type CameraCaptureHandle,
 } from '../../../features/camera-capture/index.ts';
 import { useDeviceLocation } from '../../../features/device-location/index.ts';
@@ -51,6 +54,7 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const cameraCapture = useRef<CameraCaptureHandle>(null);
   const cameraRequestStarted = useRef(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraCapabilities, setCameraCapabilities] = useState<CameraCapabilities | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [captureFeedback, setCaptureFeedback] = useState<string | null>(null);
@@ -61,6 +65,10 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const location = useDeviceLocation(cameraGranted);
   const orientation = useDeviceOrientation(cameraGranted);
   const sky = useSkyGuidePositions(accessToken, location.location, location.status === 'active');
+  const assistedCapturePlan = useMemo(
+    () => (cameraCapabilities ? createAssistedCapturePlan(cameraCapabilities) : null),
+    [cameraCapabilities],
+  );
   const handleCameraError = useCallback((message: string) => {
     setCameraReady(false);
     setCameraError(message);
@@ -128,8 +136,8 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
     setCaptureFeedback('Capturando o céu...');
     try {
       if (!cameraCapture.current) throw new Error('Camera is not ready');
-      await cameraCapture.current.capture();
-      setCaptureFeedback('Foto capturada com segurança no armazenamento temporário.');
+      const photo = await cameraCapture.current.capture();
+      setCaptureFeedback(describeAppliedCapture(photo.metadata.parameters));
     } catch (error) {
       setCaptureFeedback(cameraFailureMessage(error));
     } finally {
@@ -142,6 +150,7 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
       <CameraCaptureView
         ref={cameraCapture}
         active
+        onCapabilitiesChange={setCameraCapabilities}
         onError={handleCameraError}
         onPreviewReady={handlePreviewReady}
       />
@@ -207,6 +216,29 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
                 <Lucide color={accent} name="refresh-cw" size={16} />
               </Pressable>
             ) : null}
+          </View>
+        ) : null}
+
+        {assistedCapturePlan ? (
+          <View
+            className="mx-4 mt-3 gap-2 rounded-control border px-3 py-3"
+            style={{ backgroundColor: surface, borderColor: border }}
+          >
+            <View className="flex-row items-center gap-2">
+              <Lucide color={accent} name="sparkles" size={16} />
+              <Text className="font-label text-xs text-ink">Captura assistida</Text>
+            </View>
+            {assistedCapturePlan.recommendations.map((recommendation) => (
+              <View key={recommendation.id} className="flex-row items-start gap-2">
+                <Lucide color={accent} name="check" size={13} />
+                <View className="flex-1">
+                  <Text className="font-label text-[10px] text-ink">{recommendation.title}</Text>
+                  <Text className="font-body text-[9px] leading-3 text-muted">
+                    {recommendation.detail}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         ) : null}
 

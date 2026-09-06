@@ -34,6 +34,18 @@ Abra o VeronicaLens Development Build instalado e conecte-o ao servidor exibido.
 
 O armazenamento definitivo, galeria e upload são responsabilidades de histórias posteriores.
 
+## Captura assistida
+
+A UI recebe um plano derivado exclusivamente das capacidades da câmera ativa. Antes do disparo, o
+aplicativo mostra recomendações de foco, exposição e estabilidade. No disparo ele tenta, nesta
+ordem, medição central de AF/AE, exposição manual quando realmente disponível e compensação EV.
+Cada falha de controle avançado retorna ao modo automático sem impedir a captura básica.
+
+O resultado `CapturedPhoto` acompanha metadados internos com instante UTC, câmera ativa e os
+parâmetros efetivamente aplicados. ISO e tempo de exposição são registrados como `automatic`
+quando o Android não oferece controle manual. Esses metadados ficam prontos para persistência ou
+upload posterior; esta história não reescreve EXIF nem publica a imagem na galeria.
+
 Referências:
 
 - https://visioncamera.margelo.com/docs
