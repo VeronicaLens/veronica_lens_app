@@ -78,15 +78,79 @@ export type ProfileResponse = {
     data: Profile;
 };
 
-export type CelestialObjectType = 'moon' | 'planet' | 'star' | 'constellation' | 'deep_sky_object';
+export type CatalogObjectType = 'moon' | 'planet' | 'star' | 'constellation';
+
+export type FixedCatalogCoordinates = {
+    kind: 'fixed';
+    epoch: 'J2000';
+    rightAscensionDegrees: number;
+    declinationDegrees: number;
+};
+
+export type EphemerisCatalogCoordinates = {
+    kind: 'ephemeris';
+    provider: 'jpl-horizons';
+    providerObjectId: string;
+};
+
+export type CatalogCoordinates = ({
+    kind: 'FixedCatalogCoordinates';
+} & FixedCatalogCoordinates) | ({
+    kind: 'EphemerisCatalogCoordinates';
+} & EphemerisCatalogCoordinates);
 
 export type CelestialObject = {
     id: string;
     name: string;
-    type: CelestialObjectType;
-    rightAscensionDegrees: number;
-    declinationDegrees: number;
-    magnitude?: number | null;
+    type: CatalogObjectType;
+    aliases: Array<string>;
+    magnitude: number | null;
+    coordinates: CatalogCoordinates;
+};
+
+export type CatalogMeta = {
+    count: number;
+};
+
+export type CatalogResponse = {
+    data: Array<CelestialObject>;
+    meta: CatalogMeta;
+};
+
+export type SkyGuideObserver = {
+    latitudeDegrees: number;
+    longitudeDegrees: number;
+    elevationMeters?: number;
+};
+
+export type SkyGuidePositionsRequest = {
+    objectIds: Array<string>;
+    observedAt: string;
+    observer: SkyGuideObserver;
+};
+
+export type HorizontalCoordinates = {
+    altitudeDegrees: number;
+    azimuthDegrees: number;
+};
+
+export type SkyGuideObjectPosition = {
+    id: string;
+    name: string;
+    type: CatalogObjectType;
+    magnitude: number | null;
+    observedAt: string;
+    horizontal: HorizontalCoordinates;
+};
+
+export type SkyGuidePositionsMeta = {
+    count: number;
+    unavailableObjectIds: Array<string>;
+};
+
+export type SkyGuidePositionsResponse = {
+    data: Array<SkyGuideObjectPosition>;
+    meta: SkyGuidePositionsMeta;
 };
 
 export type AstronomicalEvent = {
@@ -481,3 +545,68 @@ export type UpdateProfileResponses = {
 };
 
 export type UpdateProfileResponse = UpdateProfileResponses[keyof UpdateProfileResponses];
+
+export type SearchCelestialObjectsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Case- and accent-insensitive name or alias fragment.
+         */
+        q?: string;
+        type?: CatalogObjectType;
+        limit?: number;
+    };
+    url: '/catalog/celestial-objects';
+};
+
+export type SearchCelestialObjectsErrors = {
+    /**
+     * Invalid catalog filters.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type SearchCelestialObjectsError = SearchCelestialObjectsErrors[keyof SearchCelestialObjectsErrors];
+
+export type SearchCelestialObjectsResponses = {
+    /**
+     * Matching local catalog objects.
+     */
+    200: CatalogResponse;
+};
+
+export type SearchCelestialObjectsResponse = SearchCelestialObjectsResponses[keyof SearchCelestialObjectsResponses];
+
+export type GetSkyGuidePositionsData = {
+    body: SkyGuidePositionsRequest;
+    path?: never;
+    query?: never;
+    url: '/sky-guide/positions';
+};
+
+export type GetSkyGuidePositionsErrors = {
+    /**
+     * Invalid observer, instant or object identifiers.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type GetSkyGuidePositionsError = GetSkyGuidePositionsErrors[keyof GetSkyGuidePositionsErrors];
+
+export type GetSkyGuidePositionsResponses = {
+    /**
+     * Available celestial positions for the observer and instant.
+     */
+    200: SkyGuidePositionsResponse;
+};
+
+export type GetSkyGuidePositionsResponse = GetSkyGuidePositionsResponses[keyof GetSkyGuidePositionsResponses];

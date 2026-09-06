@@ -16,7 +16,7 @@ interface NavigationItem {
 const items: NavigationItem[] = [
   { page: 'home', label: 'Início', icon: 'house', enabled: true },
   { page: 'explore', label: 'Explorar', icon: 'telescope', enabled: false },
-  { page: 'camera', label: 'Câmera', icon: 'camera', enabled: false },
+  { page: 'camera', label: 'Câmera', icon: 'camera', enabled: true },
   { page: 'learn', label: 'Aprender', icon: 'book-open', enabled: false },
   { page: 'profile', label: 'Perfil', icon: 'user-round', enabled: true },
 ];
