@@ -7,9 +7,10 @@
 
 ## Contexto
 
-O VeronicaLens precisa orientar capturas do céu em aparelhos Android heterogêneos. O aplicativo
-atual usa `expo-camera`, que atende ao preview do guia celeste no Expo Go, mas sua API Android
-pública não oferece foco por ponto, compensação de exposição, ISO nem tempo de exposição.
+O VeronicaLens precisa orientar capturas do céu em aparelhos Android heterogêneos. Antes da
+VRLENS-52, o aplicativo usava `expo-camera`, que atendia ao preview do guia celeste no Expo Go, mas
+sua API Android pública não oferece foco por ponto, compensação de exposição, ISO nem tempo de
+exposição.
 
 O VisionCamera usa CameraX no Android, expõe capacidades por dispositivo e permite extensão
 nativa. Entretanto, é uma dependência nativa: sua instalação exige novo binário, portanto não pode
@@ -35,9 +36,9 @@ consultar as capacidades anunciadas.
 1. A VRLENS-52 adotará VisionCamera para a experiência de captura de astrofotografia em um Expo
    Development Build. O binário pode ser gerado pelo EAS Build; Android Studio não é requisito para
    a pessoa que testa o APK.
-2. O preview já implementado para o guia celeste pode permanecer temporariamente em `expo-camera`.
-   A câmera de astrofotografia deve ficar atrás de uma interface da feature, evitando dependência da
-   biblioteca dentro das páginas.
+2. A VRLENS-52 migra o preview do guia celeste para VisionCamera e o mantém atrás da interface da
+   feature `camera-capture`, evitando dependência da biblioteca dentro das páginas e duas pilhas de
+   câmera no binário.
 3. O MVP oferecerá foco por toque, medição/lock 3A e compensação de exposição somente após
    verificar a capacidade da câmera selecionada.
 4. ISO e tempo de exposição manual não bloquearão o MVP. Um futuro adaptador Android deverá usar

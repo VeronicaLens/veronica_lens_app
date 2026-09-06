@@ -11,6 +11,13 @@ export interface SensorAvailability {
   magnetometer: boolean;
 }
 
+export interface RotationMeasurement {
+  alpha: number;
+  beta: number;
+  gamma: number;
+  timestamp: number;
+}
+
 export interface OrientationSample {
   alphaRadians: number;
   betaRadians: number;

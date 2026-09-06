@@ -15,6 +15,7 @@ import type {
   SensorAvailability,
   Vector3,
 } from '../model/orientation.types.ts';
+import { isUsableRotation } from '../model/orientation.ts';
 
 interface RemovableSubscription {
   remove(): void;
@@ -77,6 +78,10 @@ export class ExpoOrientationSource implements DeviceOrientationSource {
 
     subscriptions.push(
       DeviceMotion.addListener((measurement: DeviceMotionMeasurement) => {
+        // Some Android devices can emit an initial DeviceMotion event without a
+        // fused rotation. Skip that incomplete sample and wait for the next one.
+        if (!isUsableRotation(measurement.rotation)) return;
+
         listener({
           alphaRadians: measurement.rotation.alpha,
           betaRadians: measurement.rotation.beta,

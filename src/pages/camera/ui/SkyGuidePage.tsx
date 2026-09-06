@@ -1,6 +1,5 @@
 import { Lucide } from '@react-native-vector-icons/lucide';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -17,6 +16,12 @@ import {
   projectVisibleCelestialObjects,
   type ScreenViewport,
 } from '../../../features/celestial-projection/index.ts';
+import {
+  CameraCaptureView,
+  cameraFailureMessage,
+  useCameraAccess,
+  type CameraCaptureHandle,
+} from '../../../features/camera-capture/index.ts';
 import { useDeviceLocation } from '../../../features/device-location/index.ts';
 import { useDeviceOrientation } from '../../../features/device-orientation/index.ts';
 import { useSkyGuidePositions } from '../../../features/sky-guide/index.ts';
@@ -38,24 +43,44 @@ interface ProjectionCandidate {
 }
 
 export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const {
+    granted: cameraGranted,
+    canRequest: canRequestCamera,
+    request: requestCamera,
+  } = useCameraAccess();
+  const cameraCapture = useRef<CameraCaptureHandle>(null);
   const cameraRequestStarted = useRef(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [captureBusy, setCaptureBusy] = useState(false);
+  const [captureFeedback, setCaptureFeedback] = useState<string | null>(null);
   const [viewport, setViewport] = useState<ScreenViewport | null>(null);
   const [query, setQuery] = useState('');
   const [redNightMode, setRedNightMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const cameraGranted = cameraPermission?.granted === true;
   const location = useDeviceLocation(cameraGranted);
   const orientation = useDeviceOrientation(cameraGranted);
   const sky = useSkyGuidePositions(accessToken, location.location, location.status === 'active');
+  const handleCameraError = useCallback((message: string) => {
+    setCameraReady(false);
+    setCameraError(message);
+  }, []);
+  const handlePreviewReady = useCallback(() => {
+    setCameraError(null);
+    setCameraReady(true);
+  }, []);
 
   useEffect(() => {
-    if (!cameraPermission || cameraPermission.granted || cameraRequestStarted.current) return;
+    if (cameraGranted || !canRequestCamera || cameraRequestStarted.current) return;
     cameraRequestStarted.current = true;
-    void requestCameraPermission();
-  }, [cameraPermission, requestCameraPermission]);
+    void requestCamera();
+  }, [cameraGranted, canRequestCamera, requestCamera]);
+
+  useEffect(() => {
+    if (!captureFeedback) return;
+    const timeout = setTimeout(() => setCaptureFeedback(null), 3500);
+    return () => clearTimeout(timeout);
+  }, [captureFeedback]);
 
   const projectedObjects = useMemo(() => {
     if (!viewport || !orientation.orientation) return [];
@@ -81,36 +106,44 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const surface = redNightMode ? '#310B14' : theme.colors.surface;
   const border = redNightMode ? '#6D1A2B' : theme.colors.border;
 
-  if (!cameraPermission) {
-    return <LoadingFallback message="Preparando a câmera..." />;
-  }
-
-  if (!cameraPermission.granted) {
+  if (!cameraGranted) {
     return (
       <PermissionFallback
         icon="camera-off"
         title="A câmera está bloqueada"
         message="Permita o acesso à câmera para visualizar o guia celeste sobre o céu."
-        actionLabel={cameraPermission.canAskAgain ? 'Permitir câmera' : 'Abrir configurações'}
-        onAction={() =>
-          void (cameraPermission.canAskAgain ? requestCameraPermission() : Linking.openSettings())
-        }
+        actionLabel={canRequestCamera ? 'Permitir câmera' : 'Abrir configurações'}
+        onAction={() => void (canRequestCamera ? requestCamera() : Linking.openSettings())}
       />
     );
   }
 
-  const notice = getGuideNotice({ cameraReady, cameraError, location, orientation, sky });
+  const notice = captureFeedback
+    ? { message: captureFeedback, busy: captureBusy }
+    : getGuideNotice({ cameraReady, cameraError, location, orientation, sky });
+
+  async function capturePhoto() {
+    if (captureBusy) return;
+    setCaptureBusy(true);
+    setCaptureFeedback('Capturando o céu...');
+    try {
+      if (!cameraCapture.current) throw new Error('Camera is not ready');
+      await cameraCapture.current.capture();
+      setCaptureFeedback('Foto capturada com segurança no armazenamento temporário.');
+    } catch (error) {
+      setCaptureFeedback(cameraFailureMessage(error));
+    } finally {
+      setCaptureBusy(false);
+    }
+  }
 
   return (
     <View className="flex-1 bg-canvas" onLayout={(event) => updateViewport(event, setViewport)}>
-      <CameraView
+      <CameraCaptureView
+        ref={cameraCapture}
         active
-        facing="back"
-        mode="picture"
-        mute
-        onCameraReady={() => setCameraReady(true)}
-        onMountError={() => setCameraError('Não foi possível iniciar o preview da câmera.')}
-        style={StyleSheet.absoluteFill}
+        onError={handleCameraError}
+        onPreviewReady={handlePreviewReady}
       />
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.cameraShade]} />
       {redNightMode ? (
@@ -210,7 +243,7 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
 
         {!selectedObject ? (
           <View
-            className="absolute bottom-5 self-center rounded-pill border px-4 py-2"
+            className="absolute bottom-24 self-center rounded-pill border px-4 py-2"
             style={{ backgroundColor: surface, borderColor: border }}
           >
             <Text className="font-body text-[11px] text-ink">
@@ -219,8 +252,8 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
           </View>
         ) : (
           <View
-            className="absolute bottom-3 left-3 right-3 gap-3 rounded-panel border p-4"
-            style={{ backgroundColor: surface, borderColor: border }}
+            className="absolute left-3 right-3 gap-3 rounded-panel border p-4"
+            style={{ backgroundColor: surface, borderColor: border, bottom: 92 }}
           >
             <View
               className="h-1 w-12 self-center rounded-pill"
@@ -250,6 +283,21 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
             </Text>
           </View>
         )}
+
+        <Pressable
+          accessibilityLabel="Capturar foto do céu"
+          accessibilityRole="button"
+          accessibilityState={{ busy: captureBusy, disabled: !cameraReady || captureBusy }}
+          className="absolute bottom-4 h-[68px] w-[68px] items-center justify-center self-center rounded-full border-2 border-ink bg-canvas/60 active:opacity-75"
+          disabled={!cameraReady || captureBusy}
+          onPress={() => void capturePhoto()}
+        >
+          {captureBusy ? (
+            <ActivityIndicator color={accent} />
+          ) : (
+            <View className="h-[52px] w-[52px] rounded-full" style={{ backgroundColor: accent }} />
+          )}
+        </Pressable>
       </SafeAreaView>
     </View>
   );
@@ -275,15 +323,6 @@ function CircleButton({
     >
       <Lucide color={color} name={icon} size={18} />
     </Pressable>
-  );
-}
-
-function LoadingFallback({ message }: { message: string }) {
-  return (
-    <SafeAreaView className="flex-1 items-center justify-center gap-3 bg-canvas px-8">
-      <ActivityIndicator color={theme.colors.primary} size="large" />
-      <Text className="text-center font-body text-sm text-muted">{message}</Text>
-    </SafeAreaView>
   );
 }
 
