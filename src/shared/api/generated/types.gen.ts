@@ -153,6 +153,31 @@ export type SkyGuidePositionsResponse = {
     meta: SkyGuidePositionsMeta;
 };
 
+export type UpcomingAstronomicalEventType = 'rise' | 'transit' | 'set';
+
+export type UpcomingAstronomicalEvent = {
+    id: string;
+    type: UpcomingAstronomicalEventType;
+    objectIds: Array<string>;
+    startsAt: string;
+    peaksAt?: string;
+    endsAt?: string;
+    title: string;
+    description: string;
+};
+
+export type UpcomingEventsMeta = {
+    count: number;
+    source: 'provider' | 'cache';
+    stale: boolean;
+    updatedAt: string;
+};
+
+export type UpcomingEventsResponse = {
+    data: Array<UpcomingAstronomicalEvent>;
+    meta: UpcomingEventsMeta;
+};
+
 export type AstronomicalEvent = {
     id: string;
     slug: string;
@@ -610,3 +635,43 @@ export type GetSkyGuidePositionsResponses = {
 };
 
 export type GetSkyGuidePositionsResponse = GetSkyGuidePositionsResponses[keyof GetSkyGuidePositionsResponses];
+
+export type GetUpcomingEventsData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+        type?: UpcomingAstronomicalEventType;
+        latitudeDegrees: number;
+        longitudeDegrees: number;
+        elevationMeters?: number;
+    };
+    url: '/events';
+};
+
+export type GetUpcomingEventsErrors = {
+    /**
+     * Invalid period, type or observer coordinates.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Provider unavailable and no valid cache exists.
+     */
+    503: ErrorResponse;
+};
+
+export type GetUpcomingEventsError = GetUpcomingEventsErrors[keyof GetUpcomingEventsErrors];
+
+export type GetUpcomingEventsResponses = {
+    /**
+     * Normalized observer events. Cache freshness is exposed in metadata.
+     */
+    200: UpcomingEventsResponse;
+};
+
+export type GetUpcomingEventsResponse = GetUpcomingEventsResponses[keyof GetUpcomingEventsResponses];

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { theme } from '../../../shared/config/index.ts';
 
-export type AuthenticatedPage = 'home' | 'explore' | 'camera' | 'learn' | 'profile';
+export type AuthenticatedPage = 'home' | 'explore' | 'camera' | 'learn' | 'profile' | 'events';
 
 interface NavigationItem {
   page: AuthenticatedPage;
