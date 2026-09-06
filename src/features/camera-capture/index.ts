@@ -5,6 +5,18 @@ export {
 } from './ui/CameraCaptureView.tsx';
 export { cameraFailureMessage } from './model/camera-capture.ts';
 export {
+  applyAssistedCapturePlan,
+  createAssistedCapturePlan,
+  createAstroPhotoMetadata,
+  describeAppliedCapture,
+  type AppliedCaptureParameters,
+  type AssistedCapturePlan,
+  type AssistedCaptureRecommendation,
+  type AssistedExposureMode,
+  type AssistedFocusMode,
+  type AstroPhotoMetadata,
+} from './model/assisted-capture.ts';
+export {
   detectCameraCapabilities,
   type CameraCapabilities,
   type CameraCapabilityController,
