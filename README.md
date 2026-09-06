@@ -7,7 +7,7 @@ versionado e publicado independentemente da API.
 
 - Node.js 24 LTS
 - npm 11+
-- Dispositivo Android físico com Expo Go compatível com o Expo SDK 57
+- Dispositivo Android físico com o VeronicaLens Development Build instalado
 - Computador e dispositivo na mesma rede para conexão por LAN
 
 ## Configuração
@@ -15,46 +15,46 @@ versionado e publicado independentemente da API.
 ```bash
 npm ci
 cp .env.example .env
-npm run start:go
+npm run start:dev
 ```
 
 No PowerShell, copie o ambiente com `Copy-Item .env.example .env`.
 
-Abra o Expo Go no aparelho, selecione **Scan QR code** e leia o código exibido no terminal. Se a
-rede local bloquear a conexão, reinicie o servidor usando o tunnel:
+Abra o VeronicaLens Development Build no aparelho e conecte-o ao servidor exibido. A câmera usa
+VisionCamera e não está disponível no cliente padrão do Expo Go. Para gerar o APK sem Android
+Studio, execute `npm run build:android:dev`. Veja [Captura com VisionCamera](docs/camera-capture.md).
+
+Se a rede local bloquear a conexão do Development Build com o Metro, use o tunnel:
 
 ```bash
-npm run start:go:tunnel
+npm run start:dev:tunnel
 ```
 
 O tunnel resolve a conexão com o Metro, mas não torna a API local automaticamente acessível pelo
 aparelho. Nesse caso, configure uma URL alcançável pelo celular,
 como o IP do computador na rede, e libere somente as portas necessárias no firewall.
 
-O Expo Go é suficiente para a fase atual, enquanto o projeto usar bibliotecas presentes no Expo
-SDK ou bibliotecas sem código nativo customizado. Alterações nativas, notificações push remotas e
-bibliotecas nativas não incluídas no Expo Go exigirão um development build próprio no futuro.
-
-Quando esse momento chegar, o build Android poderá ser gerado com:
+O build Android também pode ser compilado localmente com:
 
 ```bash
 npm run android:dev
 ```
 
-Esse comando exige Android Studio/SDK para build local ou poderá ser substituído por EAS Build. O
-identificador nativo reservado é `com.veronicalens.app` e o scheme de deep link é `veronicalens`.
+Esse comando exige Android Studio/SDK. O script `build:android:dev` usa EAS Build na nuvem e não
+exige ferramentas nativas locais. O identificador nativo reservado é `com.veronicalens.app` e o
+scheme de deep link é `veronicalens`.
 
-Permissões de câmera e sensores serão declaradas quando cada funcionalidade for implementada. Isso
-evita solicitar acesso antes de existir uma necessidade funcional e mantém o princípio de menor
-privilégio.
+As permissões de câmera, localização e movimento são declaradas somente porque as respectivas
+funcionalidades já estão implementadas, mantendo o princípio de menor privilégio.
 
 ## Scripts
 
 - `npm start`: inicia o Metro/Expo.
-- `npm run start:go`: inicia explicitamente para o Expo Go.
-- `npm run start:go:tunnel`: inicia para o Expo Go usando tunnel.
+- `npm run start:dev`: inicia o Metro para o Development Build.
+- `npm run start:dev:tunnel`: inicia para o Development Build usando tunnel.
 - `npm run android`: abre o app Android já disponível.
 - `npm run android:dev`: compila e instala o development build Android local.
+- `npm run build:android:dev`: gera um APK de desenvolvimento no EAS Build.
 - `npm run lint`: executa o ESLint.
 - `npm run format`: formata o projeto.
 - `npm run typecheck`: valida o TypeScript.
@@ -81,6 +81,7 @@ provedor ao dispositivo.
 - [Contrato HTTP consumido](docs/api-contract.md)
 - [Autenticação e sessão segura](docs/authentication.md)
 - [Ambientes e configuração pública](docs/environment.md)
+- [Captura com VisionCamera](docs/camera-capture.md)
 - [Decisão sobre controles de câmera Android](docs/adr-0001-android-camera-controls.md)
 - [Protocolo do spike de câmera Android](docs/spikes/VRLENS-40-camera-controls.md)
 - [Convenções de Git](docs/git-conventions.md)

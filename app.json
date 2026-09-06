@@ -8,10 +8,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Permita que o VeronicaLens use a câmera para capturas astronômicas assistidas."
+      }
     },
     "android": {
       "package": "com.veronicalens.app",
+      "permissions": ["android.permission.CAMERA"],
       "adaptiveIcon": {
         "backgroundColor": "#080B14",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,14 +31,6 @@
       "expo-secure-store",
       "expo-font",
       "@react-native-vector-icons/lucide",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Permita que o VeronicaLens use a câmera para exibir o guia celeste sobre o céu.",
-          "recordAudioAndroid": false,
-          "barcodeScannerEnabled": false
-        }
-      ],
       [
         "expo-location",
         {
