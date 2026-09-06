@@ -15,7 +15,11 @@
     },
     "android": {
       "package": "com.veronicalens.app",
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#080B14",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -43,6 +47,11 @@
           "motionPermission": "Permita que o VeronicaLens use o movimento do aparelho para alinhar o guia celeste ao céu."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "820ebbe7-b234-4aa6-82a6-4d094cead7ad"
+      }
+    }
   }
 }
