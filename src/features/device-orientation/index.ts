@@ -5,6 +5,7 @@ export {
   initialDeviceOrientationState,
 } from './model/device-orientation.service.ts';
 export {
+  isUsableRotation,
   normalizeHeading,
   normalizeSignedAngle,
   toDeviceOrientation,
@@ -15,6 +16,7 @@ export type {
   DeviceOrientationState,
   OrientationSample,
   OrientationStatus,
+  RotationMeasurement,
   SensorAvailability,
   Vector3,
 } from './model/orientation.types.ts';
