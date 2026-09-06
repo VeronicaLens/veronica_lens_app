@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getRecoveryAccessToken, useAuthSession } from '../../features/auth/index.ts';
 import { AuthPage } from '../../pages/auth/index.ts';
 import { SkyGuidePage } from '../../pages/camera/index.ts';
+import { EventsPage } from '../../pages/events/index.ts';
 import { HomePage } from '../../pages/home/index.ts';
 import { ProfilePage } from '../../pages/profile/index.ts';
 import { theme } from '../../shared/config/index.ts';
@@ -62,10 +63,13 @@ export function AppRoot() {
               accessToken={auth.session.accessToken}
               onClose={() => setAuthenticatedPage('home')}
             />
+          ) : authenticatedPage === 'events' ? (
+            <EventsPage accessToken={auth.session.accessToken} />
           ) : (
             <HomePage
               displayName={profileDisplayName ?? auth.session.user.displayName}
               email={auth.session.user.email}
+              onOpenEvents={() => setAuthenticatedPage('events')}
             />
           )}
           <BottomNavigation activePage={authenticatedPage} onNavigate={setAuthenticatedPage} />

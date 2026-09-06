@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Lucide } from '@react-native-vector-icons/lucide';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { checkSupabaseConnectivity } from '../../../shared/api/index.ts';
+import { theme } from '../../../shared/config/index.ts';
 interface HomePageProps {
   displayName: string | null;
   email: string;
+  onOpenEvents(): void;
 }
 
-export function HomePage({ displayName, email }: HomePageProps) {
+export function HomePage({ displayName, email, onOpenEvents }: HomePageProps) {
   const [connectionStatus, setConnectionStatus] = useState('Validando conexão segura...');
 
   useEffect(() => {
@@ -49,6 +52,23 @@ export function HomePage({ displayName, email }: HomePageProps) {
               </Text>
             </View>
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            className="flex-row items-center gap-4 rounded-card border border-border bg-surface p-5 active:opacity-75"
+            onPress={onOpenEvents}
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-2">
+              <Lucide color={theme.colors.info} name="calendar-days" size={21} />
+            </View>
+            <View className="flex-1 gap-1">
+              <Text className="font-label text-sm text-ink">Eventos astronômicos</Text>
+              <Text className="font-body text-xs leading-5 text-muted">
+                Veja quando a Lua e os planetas estarão no céu.
+              </Text>
+            </View>
+            <Lucide color={theme.colors.muted} name="chevron-right" size={18} />
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
