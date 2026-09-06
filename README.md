@@ -81,6 +81,8 @@ provedor ao dispositivo.
 - [Contrato HTTP consumido](docs/api-contract.md)
 - [Autenticação e sessão segura](docs/authentication.md)
 - [Ambientes e configuração pública](docs/environment.md)
+- [Decisão sobre controles de câmera Android](docs/adr-0001-android-camera-controls.md)
+- [Protocolo do spike de câmera Android](docs/spikes/VRLENS-40-camera-controls.md)
 - [Convenções de Git](docs/git-conventions.md)
 
 Exemplo de branch e commit:
