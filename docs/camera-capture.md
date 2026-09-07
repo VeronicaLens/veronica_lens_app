@@ -32,7 +32,16 @@ Abra o VeronicaLens Development Build instalado e conecte-o ao servidor exibido.
 - Falhas de permissão, câmera ausente, câmera ocupada, preview não pronto e captura são convertidas
   em mensagens seguras para o usuário.
 
-O armazenamento definitivo, galeria e upload são responsabilidades de histórias posteriores.
+## Persistência e retry
+
+Após a captura, a imagem sai do cache temporário e é copiada para o diretório persistente do
+aplicativo antes de qualquer tentativa de rede. A fila local guarda os identificadores idempotentes,
+o instante, o aparelho, os parâmetros aplicados, a localização disponível e o objeto celeste
+selecionado. A API autenticada envia o arquivo ao bucket privado `observations` no caminho
+`<user_id>/<observation_id>/<photo_id>.jpg`.
+
+Somente depois de a API confirmar o arquivo e os metadados a cópia local é removida. Uma falha de
+rede ou Storage mantém a fila e o arquivo para nova tentativa na próxima abertura do guia.
 
 ## Captura assistida
 

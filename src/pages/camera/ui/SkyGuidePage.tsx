@@ -17,6 +17,10 @@ import {
   type ScreenViewport,
 } from '../../../features/celestial-projection/index.ts';
 import {
+  flushPendingAstroPhotos,
+  saveCapturedAstroPhoto,
+} from '../../../features/astrophoto-storage/index.ts';
+import {
   CameraCaptureView,
   cameraFailureMessage,
   createAssistedCapturePlan,
@@ -90,6 +94,10 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
     return () => clearTimeout(timeout);
   }, [captureFeedback]);
 
+  useEffect(() => {
+    void flushPendingAstroPhotos(accessToken);
+  }, [accessToken]);
+
   const projectedObjects = useMemo(() => {
     if (!viewport || !orientation.orientation) return [];
     const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
@@ -137,7 +145,18 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
     try {
       if (!cameraCapture.current) throw new Error('Camera is not ready');
       const photo = await cameraCapture.current.capture();
-      setCaptureFeedback(describeAppliedCapture(photo.metadata.parameters));
+      const persistence = await saveCapturedAstroPhoto(accessToken, photo, {
+        title: selectedObject ? `Astrofoto de ${selectedObject.name}` : 'Astrofoto do céu',
+        notes: '',
+        celestialObjectName: selectedObject?.name ?? null,
+        latitude: location.location?.latitudeDegrees ?? null,
+        longitude: location.location?.longitudeDegrees ?? null,
+      });
+      setCaptureFeedback(
+        persistence === 'uploaded'
+          ? `${describeAppliedCapture(photo.metadata.parameters)} Foto salva no histórico.`
+          : 'Foto preservada no aparelho. O envio será repetido quando houver conexão.',
+      );
     } catch (error) {
       setCaptureFeedback(cameraFailureMessage(error));
     } finally {
