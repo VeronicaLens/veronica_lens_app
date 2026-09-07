@@ -184,6 +184,49 @@ export type SkyGuidePositionsResponse = {
     meta: SkyGuidePositionsMeta;
 };
 
+export type ObservationRecommendationRequest = {
+    objectId: string;
+    windowFrom: string;
+    /**
+     * Must be after windowFrom and no more than 24 hours later.
+     */
+    windowTo: string;
+    observer: SkyGuideObserver;
+    minimumAltitudeDegrees?: number;
+};
+
+export type VisibilityFactor = {
+    code: 'altitude' | 'moon' | 'weather';
+    status: 'favorable' | 'unfavorable' | 'unavailable';
+    summary: string;
+};
+
+export type RecommendedObservationWindow = {
+    from: string;
+    to: string;
+    consideredAt: string;
+};
+
+export type ObservationRecommendationMeta = {
+    evaluatedSamples: number;
+    sampleIntervalMinutes: number;
+    weatherAvailable: boolean;
+};
+
+export type ObservationRecommendation = {
+    objectId: string;
+    objectName: string | null;
+    status: 'recommended' | 'no_favorable_window' | 'insufficient_data';
+    recommendedWindow: RecommendedObservationWindow | null;
+    factors: Array<VisibilityFactor>;
+    summary: string;
+    meta: ObservationRecommendationMeta;
+};
+
+export type ObservationRecommendationResponse = {
+    data: ObservationRecommendation;
+};
+
 export type UpcomingAstronomicalEventType = 'rise' | 'transit' | 'set';
 
 export type UpcomingAstronomicalEvent = {
@@ -666,6 +709,35 @@ export type GetSkyGuidePositionsResponses = {
 };
 
 export type GetSkyGuidePositionsResponse = GetSkyGuidePositionsResponses[keyof GetSkyGuidePositionsResponses];
+
+export type RecommendObservationWindowData = {
+    body: ObservationRecommendationRequest;
+    path?: never;
+    query?: never;
+    url: '/planning/observation-window';
+};
+
+export type RecommendObservationWindowErrors = {
+    /**
+     * Invalid object, observer, interval or altitude threshold.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type RecommendObservationWindowError = RecommendObservationWindowErrors[keyof RecommendObservationWindowErrors];
+
+export type RecommendObservationWindowResponses = {
+    /**
+     * Recommendation outcome with supporting factors and data availability.
+     */
+    200: ObservationRecommendationResponse;
+};
+
+export type RecommendObservationWindowResponse = RecommendObservationWindowResponses[keyof RecommendObservationWindowResponses];
 
 export type SaveObservationPhotoData = {
     body: Blob | File;

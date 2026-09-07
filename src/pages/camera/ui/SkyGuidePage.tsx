@@ -31,8 +31,12 @@ import {
 } from '../../../features/camera-capture/index.ts';
 import { useDeviceLocation } from '../../../features/device-location/index.ts';
 import { useDeviceOrientation } from '../../../features/device-orientation/index.ts';
+import { useObservationRecommendation } from '../../../features/observation-planning/index.ts';
 import { useSkyGuidePositions } from '../../../features/sky-guide/index.ts';
-import type { SkyGuideObjectPosition } from '../../../shared/api/index.ts';
+import type {
+  ObservationRecommendation,
+  SkyGuideObjectPosition,
+} from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 
 const CAMERA_FIELD_OF_VIEW = { horizontalDegrees: 45, verticalDegrees: 60 } as const;
@@ -69,6 +73,7 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const location = useDeviceLocation(cameraGranted);
   const orientation = useDeviceOrientation(cameraGranted);
   const sky = useSkyGuidePositions(accessToken, location.location, location.status === 'active');
+  const planning = useObservationRecommendation(accessToken, selectedId, location.location);
   const assistedCapturePlan = useMemo(
     () => (cameraCapabilities ? createAssistedCapturePlan(cameraCapabilities) : null),
     [cameraCapabilities],
@@ -332,6 +337,34 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
             <Text className="font-body text-xs leading-5 text-ink">
               Objeto identificado no campo atual da câmera.
             </Text>
+            <View className="gap-1 rounded-control bg-surface-2 px-3 py-2">
+              {planning.loading ? (
+                <View className="flex-row items-center gap-2">
+                  <ActivityIndicator color={accent} size="small" />
+                  <Text className="font-body text-[11px] text-muted">
+                    Calculando melhor janela nas próximas 24 horas...
+                  </Text>
+                </View>
+              ) : planning.error ? (
+                <View className="flex-row items-center gap-2">
+                  <Text className="flex-1 font-body text-[11px] text-muted">{planning.error}</Text>
+                  <Pressable accessibilityRole="button" onPress={planning.refresh}>
+                    <Text className="font-label text-[10px]" style={{ color: accent }}>
+                      Tentar novamente
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : planning.recommendation ? (
+                <>
+                  <Text className="font-label text-[11px]" style={{ color: accent }}>
+                    {recommendationTitle(planning.recommendation)}
+                  </Text>
+                  <Text className="font-body text-[10px] leading-4 text-muted">
+                    {planning.recommendation.summary}
+                  </Text>
+                </>
+              ) : null}
+            </View>
           </View>
         )}
 
@@ -452,6 +485,25 @@ function getGuideNotice({
 
 function objectTypeLabel(type: SkyGuideObjectPosition['type']): string {
   return { moon: 'Lua', planet: 'Planeta', star: 'Estrela', constellation: 'Constelação' }[type];
+}
+
+function recommendationTitle(recommendation: ObservationRecommendation): string {
+  if (recommendation.status !== 'recommended' || !recommendation.recommendedWindow) {
+    return recommendation.status === 'insufficient_data'
+      ? 'Dados insuficientes para recomendar'
+      : 'Sem janela favorável nas próximas 24 horas';
+  }
+  const from = new Date(recommendation.recommendedWindow.from).toLocaleString('pt-BR', {
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const to = new Date(recommendation.recommendedWindow.to).toLocaleString('pt-BR', {
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `Melhor janela: ${from}–${to}`;
 }
 
 const styles = StyleSheet.create({
