@@ -8,6 +8,7 @@ import { ActivityIndicator, Linking, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getRecoveryAccessToken, useAuthSession } from '../../features/auth/index.ts';
+import { getEventIdFromUrl } from '../../features/astronomical-events/index.ts';
 import { AuthPage } from '../../pages/auth/index.ts';
 import { SkyGuidePage } from '../../pages/camera/index.ts';
 import { EventsPage } from '../../pages/events/index.ts';
@@ -26,11 +27,20 @@ export function AppRoot() {
   const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
   const [authenticatedPage, setAuthenticatedPage] = useState<AuthenticatedPage>('home');
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
+  const [notificationEventId, setNotificationEventId] = useState<string | null>(null);
 
   useEffect(() => {
-    void Linking.getInitialURL().then((url) => setRecoveryAccessToken(getRecoveryAccessToken(url)));
-    const subscription = Linking.addEventListener('url', ({ url }) => {
+    const handleUrl = (url: string | null) => {
       setRecoveryAccessToken(getRecoveryAccessToken(url));
+      const eventId = getEventIdFromUrl(url);
+      if (eventId) {
+        setNotificationEventId(eventId);
+        setAuthenticatedPage('events');
+      }
+    };
+    void Linking.getInitialURL().then(handleUrl);
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleUrl(url);
     });
     return () => subscription.remove();
   }, []);
@@ -64,7 +74,11 @@ export function AppRoot() {
               onClose={() => setAuthenticatedPage('home')}
             />
           ) : authenticatedPage === 'events' ? (
-            <EventsPage accessToken={auth.session.accessToken} />
+            <EventsPage
+              accessToken={auth.session.accessToken}
+              initialEventId={notificationEventId}
+              onInitialEventHandled={() => setNotificationEventId(null)}
+            />
           ) : (
             <HomePage
               displayName={profileDisplayName ?? auth.session.user.displayName}

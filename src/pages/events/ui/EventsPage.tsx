@@ -10,9 +10,12 @@ import type {
   UpcomingAstronomicalEventType,
 } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
+import { EventDetailPage } from './EventDetailPage.tsx';
 
 interface EventsPageProps {
   accessToken: string;
+  initialEventId?: string | null;
+  onInitialEventHandled?(): void;
 }
 
 const types: { value?: UpcomingAstronomicalEventType; label: string }[] = [
@@ -24,13 +27,56 @@ const types: { value?: UpcomingAstronomicalEventType; label: string }[] = [
 
 const periods = [7, 14, 30] as const;
 
-export function EventsPage({ accessToken }: EventsPageProps) {
+export function EventsPage({
+  accessToken,
+  initialEventId,
+  onInitialEventHandled,
+}: EventsPageProps) {
   const [periodDays, setPeriodDays] = useState<number>(7);
   const [type, setType] = useState<UpcomingAstronomicalEventType | undefined>();
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const location = useDeviceLocation();
-  const events = useUpcomingEvents(accessToken, location.location, periodDays, type);
+  const effectivePeriodDays = initialEventId ? 30 : periodDays;
+  const events = useUpcomingEvents(accessToken, location.location, effectivePeriodDays, type);
   const canShowEvents =
     location.status === 'active' && !events.loading && !events.error && events.events.length > 0;
+  const activeEventId = initialEventId ?? selectedEventId;
+  const activeEvent = events.events.find((event) => event.id === activeEventId) ?? null;
+
+  if (activeEvent) {
+    return (
+      <EventDetailPage
+        accessToken={accessToken}
+        event={activeEvent}
+        location={location.location}
+        meta={events.meta}
+        onBack={() => {
+          setSelectedEventId(null);
+          onInitialEventHandled?.();
+        }}
+      />
+    );
+  }
+
+  if (
+    initialEventId &&
+    location.status === 'active' &&
+    !events.loading &&
+    !events.error &&
+    !activeEvent
+  ) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas px-5 pt-5">
+        <EmptyState
+          icon="calendar-x"
+          title="Evento não encontrado"
+          message="Este evento não está mais disponível na agenda atual."
+          action="Voltar para eventos"
+          onPress={() => onInitialEventHandled?.()}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
@@ -128,7 +174,9 @@ export function EventsPage({ accessToken }: EventsPageProps) {
           </View>
         }
         ListHeaderComponentStyle={{ marginBottom: canShowEvents ? 12 : 0 }}
-        renderItem={({ item }) => <EventCard event={item} />}
+        renderItem={({ item }) => (
+          <EventCard event={item} onPress={() => setSelectedEventId(item.id)} />
+        )}
       />
     </SafeAreaView>
   );
@@ -155,7 +203,7 @@ function FilterChip({
   );
 }
 
-function EventCard({ event }: { event: UpcomingAstronomicalEvent }) {
+function EventCard({ event, onPress }: { event: UpcomingAstronomicalEvent; onPress(): void }) {
   const config = {
     rise: { icon: 'sunrise', label: 'Nascer', color: theme.colors.info },
     transit: { icon: 'move-up', label: 'Trânsito', color: theme.colors.accent },
@@ -163,7 +211,12 @@ function EventCard({ event }: { event: UpcomingAstronomicalEvent }) {
   }[event.type] as { icon: LucideIconName; label: string; color: string };
   const date = new Date(event.startsAt);
   return (
-    <View className="flex-row gap-4 rounded-card border border-border bg-surface p-4">
+    <Pressable
+      accessibilityLabel={`Abrir detalhes de ${event.title}`}
+      accessibilityRole="button"
+      className="flex-row gap-4 rounded-card border border-border bg-surface p-4 active:opacity-80"
+      onPress={onPress}
+    >
       <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-2">
         <Lucide color={config.color} name={config.icon} size={20} />
       </View>
@@ -177,7 +230,8 @@ function EventCard({ event }: { event: UpcomingAstronomicalEvent }) {
         </Text>
         <Text className="font-body text-xs leading-5 text-muted">{event.description}</Text>
       </View>
-    </View>
+      <Lucide color={theme.colors.muted} name="chevron-right" size={18} />
+    </Pressable>
   );
 }
 

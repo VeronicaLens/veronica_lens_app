@@ -10,6 +10,7 @@ export function useObservationRecommendation(
   accessToken: string,
   objectId: string | null,
   location: DeviceLocation | null,
+  windowFrom?: string,
 ) {
   const [recommendation, setRecommendation] = useState<ObservationRecommendation | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,12 +25,12 @@ export function useObservationRecommendation(
       setRecommendation(null);
       setError(null);
       setLoading(true);
-      const now = new Date();
+      const from = windowFrom ? new Date(windowFrom) : new Date();
       try {
         const result = await getObservationRecommendation(accessToken, {
           objectId,
-          windowFrom: now.toISOString(),
-          windowTo: new Date(now.getTime() + RECOMMENDATION_WINDOW_MS).toISOString(),
+          windowFrom: from.toISOString(),
+          windowTo: new Date(from.getTime() + RECOMMENDATION_WINDOW_MS).toISOString(),
           observer: {
             latitudeDegrees: location.latitudeDegrees,
             longitudeDegrees: location.longitudeDegrees,
@@ -55,7 +56,7 @@ export function useObservationRecommendation(
     return () => {
       disposed = true;
     };
-  }, [accessToken, attempt, location, objectId]);
+  }, [accessToken, attempt, location, objectId, windowFrom]);
 
   const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   const enabled = Boolean(objectId && location);
