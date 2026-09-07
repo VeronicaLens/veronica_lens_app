@@ -4,6 +4,37 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}/api/v1` | (string & {});
 };
 
+export type ObservationPhotoMetadata = {
+    title: string;
+    notes: string;
+    capturedAt: string;
+    astronomicalEventId?: string | null;
+    celestialObjectName?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    device: {
+        id: string;
+        name: string;
+    };
+    /**
+     * Applied focus, exposure, ISO and fallback parameters.
+     */
+    parameters: {
+        [key: string]: unknown;
+    };
+};
+
+export type ObservationPhoto = {
+    observationId: string;
+    photoId: string;
+    storagePath: string;
+    capturedAt: string;
+};
+
+export type ObservationPhotoResponse = {
+    data: ObservationPhoto;
+};
+
 export type Error = {
     code: string;
     message: string;
@@ -635,6 +666,48 @@ export type GetSkyGuidePositionsResponses = {
 };
 
 export type GetSkyGuidePositionsResponse = GetSkyGuidePositionsResponses[keyof GetSkyGuidePositionsResponses];
+
+export type SaveObservationPhotoData = {
+    body: Blob | File;
+    headers: {
+        /**
+         * URI-encoded JSON matching ObservationPhotoMetadata.
+         */
+        'X-Veronica-Observation': string;
+    };
+    path: {
+        observationId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/observations/{observationId}/photos/{photoId}';
+};
+
+export type SaveObservationPhotoErrors = {
+    /**
+     * Photo identifiers, content, or metadata are invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Storage is temporarily unavailable; the client may retry the same identifiers.
+     */
+    503: ErrorResponse;
+};
+
+export type SaveObservationPhotoError = SaveObservationPhotoErrors[keyof SaveObservationPhotoErrors];
+
+export type SaveObservationPhotoResponses = {
+    /**
+     * Photo and metadata persisted idempotently.
+     */
+    200: ObservationPhotoResponse;
+};
+
+export type SaveObservationPhotoResponse = SaveObservationPhotoResponses[keyof SaveObservationPhotoResponses];
 
 export type GetUpcomingEventsData = {
     body?: never;
