@@ -35,6 +35,27 @@ export type ObservationPhotoResponse = {
     data: ObservationPhoto;
 };
 
+export type ObservationHistoryPhoto = {
+    id: string;
+    storagePath: string;
+    capturedAt: string | null;
+};
+
+export type ObservationHistoryItem = {
+    id: string;
+    title: string;
+    notes: string;
+    celestialObjectName: string | null;
+    observedAt: string;
+    latitude: number | null;
+    longitude: number | null;
+    photos: Array<ObservationHistoryPhoto>;
+};
+
+export type ObservationHistoryResponse = {
+    data: Array<ObservationHistoryItem>;
+};
+
 export type Error = {
     code: string;
     message: string;
@@ -738,6 +759,35 @@ export type RecommendObservationWindowResponses = {
 };
 
 export type RecommendObservationWindowResponse = RecommendObservationWindowResponses[keyof RecommendObservationWindowResponses];
+
+export type ListObservationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/observations';
+};
+
+export type ListObservationsErrors = {
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Observation history is temporarily unavailable.
+     */
+    503: ErrorResponse;
+};
+
+export type ListObservationsError = ListObservationsErrors[keyof ListObservationsErrors];
+
+export type ListObservationsResponses = {
+    /**
+     * Private observations ordered from most to least recent.
+     */
+    200: ObservationHistoryResponse;
+};
+
+export type ListObservationsResponse = ListObservationsResponses[keyof ListObservationsResponses];
 
 export type SaveObservationPhotoData = {
     body: Blob | File;

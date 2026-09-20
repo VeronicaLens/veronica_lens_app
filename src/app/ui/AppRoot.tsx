@@ -13,6 +13,7 @@ import { AuthPage } from '../../pages/auth/index.ts';
 import { SkyGuidePage } from '../../pages/camera/index.ts';
 import { EventsPage } from '../../pages/events/index.ts';
 import { HomePage } from '../../pages/home/index.ts';
+import { ObservationHistoryPage } from '../../pages/observation-history/index.ts';
 import { ProfilePage } from '../../pages/profile/index.ts';
 import { theme } from '../../shared/config/index.ts';
 import { BottomNavigation, type AuthenticatedPage } from '../../widgets/bottom-navigation/index.ts';
@@ -68,6 +69,8 @@ export function AppRoot() {
               }}
               onSaved={(profile) => setProfileDisplayName(profile.displayName)}
             />
+          ) : authenticatedPage === 'history' ? (
+            <ObservationHistoryPage accessToken={auth.session.accessToken} />
           ) : authenticatedPage === 'camera' ? (
             <SkyGuidePage
               accessToken={auth.session.accessToken}

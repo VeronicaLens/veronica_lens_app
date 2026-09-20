@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { theme } from '../../../shared/config/index.ts';
 
-export type AuthenticatedPage = 'home' | 'explore' | 'camera' | 'learn' | 'profile' | 'events';
+export type AuthenticatedPage = 'home' | 'history' | 'camera' | 'learn' | 'profile' | 'events';
 
 interface NavigationItem {
   page: AuthenticatedPage;
@@ -15,7 +15,7 @@ interface NavigationItem {
 
 const items: NavigationItem[] = [
   { page: 'home', label: 'Início', icon: 'house', enabled: true },
-  { page: 'explore', label: 'Explorar', icon: 'telescope', enabled: false },
+  { page: 'history', label: 'Histórico', icon: 'clock-3', enabled: true },
   { page: 'camera', label: 'Câmera', icon: 'camera', enabled: true },
   { page: 'learn', label: 'Aprender', icon: 'book-open', enabled: false },
   { page: 'profile', label: 'Perfil', icon: 'user-round', enabled: true },
