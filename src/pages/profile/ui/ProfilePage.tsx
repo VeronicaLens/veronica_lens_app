@@ -13,6 +13,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProfile } from '../../../features/profile/index.ts';
+import {
+  deactivateStoredPushDevice,
+  requestAndRegisterPushDevice,
+  useEventPreferences,
+} from '../../../features/notifications/index.ts';
 import type { AppLanguage, MeasurementUnit, Profile } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 import { Button, TextField } from '../../../shared/ui/index.ts';
@@ -102,6 +107,7 @@ function Choice<T extends string>({
 
 export function ProfilePage({ accessToken, email, onLogout, onSaved }: ProfilePageProps) {
   const { profile, loading, saving, error, load, save } = useProfile(accessToken);
+  const eventPreferences = useEventPreferences(accessToken);
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [locationName, setLocationName] = useState('');
@@ -127,9 +133,20 @@ export function ProfilePage({ accessToken, email, onLogout, onSaved }: ProfilePa
   }, [profile]);
 
   const persistNotifications = async (value: boolean) => {
-    setNotificationsEnabled(value);
+    setFormError(null);
+    if (value) {
+      const registration = await requestAndRegisterPushDevice(accessToken);
+      if (registration.status !== 'registered') {
+        setFormError(registration.message);
+        return;
+      }
+    }
     const updated = await save({ notificationsEnabled: value });
-    if (updated) onSaved(updated);
+    if (updated) {
+      setNotificationsEnabled(value);
+      onSaved(updated);
+      if (!value) await deactivateStoredPushDevice(accessToken);
+    }
   };
 
   const changeLocation = async (enabled: boolean) => {
@@ -332,6 +349,33 @@ export function ProfilePage({ accessToken, email, onLogout, onSaved }: ProfilePa
                   value={profile.latitude !== null && profile.longitude !== null}
                   onChange={(value) => void changeLocation(value)}
                 />
+                {profile.notificationsEnabled ? (
+                  <View className="gap-3 pt-1">
+                    <Text className="font-label text-xs text-ink">Alertas de eventos</Text>
+                    {eventPreferences.preferences.map((preference) => (
+                      <PreferenceRow
+                        key={preference.eventType}
+                        disabled={eventPreferences.saving}
+                        icon="calendar-clock"
+                        iconColor={theme.colors.accent}
+                        title={eventLabel(preference.eventType)}
+                        subtitle={`Avisar ${preference.leadMinutes} min antes`}
+                        value={preference.enabled}
+                        onChange={(value) =>
+                          void eventPreferences.setEnabled(preference.eventType, value)
+                        }
+                      />
+                    ))}
+                    {eventPreferences.error ? (
+                      <Text
+                        accessibilityLiveRegion="polite"
+                        className="font-body text-xs text-event"
+                      >
+                        {eventPreferences.error}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
                 {saving && <ActivityIndicator color={theme.colors.primary} />}
                 {error && (
                   <Text accessibilityLiveRegion="polite" className="font-body text-xs text-event">
@@ -377,5 +421,15 @@ export function ProfilePage({ accessToken, email, onLogout, onSaved }: ProfilePa
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function eventLabel(eventType: string): string {
+  return (
+    {
+      rise: 'Nascer de astros',
+      transit: 'Trânsito de astros',
+      set: 'Ocaso de astros',
+    }[eventType] ?? eventType
   );
 }

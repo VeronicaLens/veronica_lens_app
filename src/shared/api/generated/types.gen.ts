@@ -63,6 +63,31 @@ export type ObservationHistoryResponse = {
     hasMore: boolean;
 };
 
+export type EventPreference = {
+    eventType: string;
+    enabled: boolean;
+    leadMinutes: number;
+};
+
+export type NotificationPreferencesRequest = {
+    preferences: Array<EventPreference>;
+};
+
+export type NotificationPreferencesResponse = {
+    data: Array<EventPreference>;
+};
+
+export type PushDevicePlatform = 'android' | 'ios';
+
+export type PushDeviceRequest = {
+    token: string;
+    platform: PushDevicePlatform;
+};
+
+export type PushDeviceTokenRequest = {
+    token: string;
+};
+
 export type Error = {
     code: string;
     message: string;
@@ -798,6 +823,118 @@ export type ListObservationsResponses = {
 };
 
 export type ListObservationsResponse = ListObservationsResponses[keyof ListObservationsResponses];
+
+export type ListNotificationPreferencesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/notifications/preferences';
+};
+
+export type ListNotificationPreferencesErrors = {
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type ListNotificationPreferencesError = ListNotificationPreferencesErrors[keyof ListNotificationPreferencesErrors];
+
+export type ListNotificationPreferencesResponses = {
+    /**
+     * Event alert preferences for the authenticated user.
+     */
+    200: NotificationPreferencesResponse;
+};
+
+export type ListNotificationPreferencesResponse = ListNotificationPreferencesResponses[keyof ListNotificationPreferencesResponses];
+
+export type UpdateNotificationPreferencesData = {
+    body: NotificationPreferencesRequest;
+    path?: never;
+    query?: never;
+    url: '/notifications/preferences';
+};
+
+export type UpdateNotificationPreferencesErrors = {
+    /**
+     * Invalid notification preferences.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type UpdateNotificationPreferencesError = UpdateNotificationPreferencesErrors[keyof UpdateNotificationPreferencesErrors];
+
+export type UpdateNotificationPreferencesResponses = {
+    /**
+     * Saved event alert preferences.
+     */
+    200: NotificationPreferencesResponse;
+};
+
+export type UpdateNotificationPreferencesResponse = UpdateNotificationPreferencesResponses[keyof UpdateNotificationPreferencesResponses];
+
+export type UnregisterPushDeviceData = {
+    body: PushDeviceTokenRequest;
+    path?: never;
+    query?: never;
+    url: '/notifications/devices';
+};
+
+export type UnregisterPushDeviceErrors = {
+    /**
+     * Invalid push device.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type UnregisterPushDeviceError = UnregisterPushDeviceErrors[keyof UnregisterPushDeviceErrors];
+
+export type UnregisterPushDeviceResponses = {
+    /**
+     * Device deactivated.
+     */
+    204: void;
+};
+
+export type UnregisterPushDeviceResponse = UnregisterPushDeviceResponses[keyof UnregisterPushDeviceResponses];
+
+export type RegisterPushDeviceData = {
+    body: PushDeviceRequest;
+    path?: never;
+    query?: never;
+    url: '/notifications/devices';
+};
+
+export type RegisterPushDeviceErrors = {
+    /**
+     * Invalid push device.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type RegisterPushDeviceError = RegisterPushDeviceErrors[keyof RegisterPushDeviceErrors];
+
+export type RegisterPushDeviceResponses = {
+    /**
+     * Device registered.
+     */
+    204: void;
+};
+
+export type RegisterPushDeviceResponse = RegisterPushDeviceResponses[keyof RegisterPushDeviceResponses];
 
 export type SaveObservationPhotoData = {
     body: Blob | File;

@@ -9,6 +9,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getRecoveryAccessToken, useAuthSession } from '../../features/auth/index.ts';
 import { getEventIdFromUrl } from '../../features/astronomical-events/index.ts';
+import {
+  clearStoredPushDevice,
+  deactivateStoredPushDevice,
+} from '../../features/notifications/index.ts';
 import { AuthPage } from '../../pages/auth/index.ts';
 import { SkyGuidePage } from '../../pages/camera/index.ts';
 import { EventsPage } from '../../pages/events/index.ts';
@@ -46,6 +50,10 @@ export function AppRoot() {
     return () => subscription.remove();
   }, []);
 
+  useEffect(() => {
+    if (auth.status === 'anonymous') void clearStoredPushDevice();
+  }, [auth.status]);
+
   return (
     <SafeAreaProvider>
       {!fontsLoaded && !fontError ? (
@@ -65,6 +73,9 @@ export function AppRoot() {
               onLogout={async () => {
                 setAuthenticatedPage('home');
                 setProfileDisplayName(null);
+                if (auth.session?.accessToken) {
+                  await deactivateStoredPushDevice(auth.session.accessToken);
+                }
                 await auth.logout();
               }}
               onSaved={(profile) => setProfileDisplayName(profile.displayName)}
