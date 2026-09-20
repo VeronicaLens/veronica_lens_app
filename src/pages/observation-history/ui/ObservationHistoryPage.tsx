@@ -1,5 +1,6 @@
 import { Lucide } from '@react-native-vector-icons/lucide';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useObservationHistory } from '../../../features/observation-history/index.ts';
@@ -11,7 +12,20 @@ interface ObservationHistoryPageProps {
 }
 
 export function ObservationHistoryPage({ accessToken }: ObservationHistoryPageProps) {
-  const { observations, loading, error, load } = useObservationHistory(accessToken);
+  const [selectedObservation, setSelectedObservation] = useState<ObservationHistoryItem | null>(
+    null,
+  );
+  const { observations, loading, loadingMore, hasMore, error, refresh, loadMore } =
+    useObservationHistory(accessToken);
+
+  if (selectedObservation) {
+    return (
+      <ObservationDetail
+        observation={selectedObservation}
+        onBack={() => setSelectedObservation(null)}
+      />
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
@@ -20,6 +34,23 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
         data={observations}
         ItemSeparatorComponent={() => <View className="h-3" />}
         keyExtractor={(observation) => observation.id}
+        onEndReached={() => void loadMore()}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={
+          loadingMore ? (
+            <View className="items-center py-6">
+              <ActivityIndicator color={theme.colors.primary} />
+            </View>
+          ) : hasMore ? (
+            <Pressable
+              accessibilityRole="button"
+              className="mt-5 items-center rounded-pill border border-border bg-surface px-5 py-3 active:opacity-80"
+              onPress={() => void loadMore()}
+            >
+              <Text className="font-label text-xs text-accent">Carregar mais</Text>
+            </Pressable>
+          ) : null
+        }
         ListEmptyComponent={
           loading ? (
             <View className="items-center gap-3 rounded-card bg-surface p-8">
@@ -33,7 +64,7 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
               <Pressable
                 accessibilityRole="button"
                 className="mt-2 rounded-pill bg-brand px-5 py-3 active:opacity-80"
-                onPress={() => void load()}
+                onPress={() => void refresh()}
               >
                 <Text className="font-label text-xs text-ink">Tentar novamente</Text>
               </Pressable>
@@ -61,13 +92,21 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
             </Text>
           </View>
         }
-        renderItem={({ item }) => <ObservationCard observation={item} />}
+        renderItem={({ item }) => (
+          <ObservationCard observation={item} onPress={() => setSelectedObservation(item)} />
+        )}
       />
     </SafeAreaView>
   );
 }
 
-function ObservationCard({ observation }: { observation: ObservationHistoryItem }) {
+function ObservationCard({
+  observation,
+  onPress,
+}: {
+  observation: ObservationHistoryItem;
+  onPress(): void;
+}) {
   const observedAt = new Date(observation.observedAt);
   const location =
     observation.latitude === null || observation.longitude === null
@@ -75,30 +114,122 @@ function ObservationCard({ observation }: { observation: ObservationHistoryItem 
       : `${observation.latitude.toFixed(4)}, ${observation.longitude.toFixed(4)}`;
 
   return (
-    <View className="gap-3 rounded-card border border-border bg-surface p-4">
-      <View className="flex-row items-start gap-3">
-        <View className="h-10 w-10 items-center justify-center rounded-full bg-surface-2">
-          <Lucide color={theme.colors.accent} name="camera" size={18} />
+    <Pressable
+      accessibilityLabel={`Abrir observação ${observation.title}`}
+      accessibilityRole="button"
+      className="flex-row gap-3 rounded-card border border-border bg-surface p-3 active:opacity-80"
+      onPress={onPress}
+    >
+      <Thumbnail observation={observation} />
+      <View className="flex-1 gap-3 py-1">
+        <View className="flex-row items-start gap-3">
+          <View className="flex-1 gap-1">
+            <Text className="font-label text-sm text-ink">{observation.title}</Text>
+            <Text className="font-body text-xs text-muted">
+              {formatDateTime(observedAt)}
+              {observation.celestialObjectName ? ` · ${observation.celestialObjectName}` : ''}
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-1">
+            <Lucide color={theme.colors.info} name="image" size={14} />
+            <Text className="font-label text-[11px] text-info">{observation.photos.length}</Text>
+          </View>
         </View>
-        <View className="flex-1 gap-1">
-          <Text className="font-label text-sm text-ink">{observation.title}</Text>
-          <Text className="font-body text-xs text-muted">
-            {formatDateTime(observedAt)}
-            {observation.celestialObjectName ? ` · ${observation.celestialObjectName}` : ''}
-          </Text>
-        </View>
-        <View className="flex-row items-center gap-1">
-          <Lucide color={theme.colors.info} name="image" size={14} />
-          <Text className="font-label text-[11px] text-info">{observation.photos.length}</Text>
+        {observation.notes ? (
+          <Text className="font-body text-sm leading-5 text-muted">{observation.notes}</Text>
+        ) : null}
+        <View className="flex-row items-center gap-2">
+          <Lucide color={theme.colors.muted} name="map-pin" size={14} />
+          <Text className="flex-1 font-body text-xs text-muted">{location}</Text>
         </View>
       </View>
-      {observation.notes ? (
-        <Text className="font-body text-sm leading-5 text-muted">{observation.notes}</Text>
-      ) : null}
-      <View className="flex-row items-center gap-2">
-        <Lucide color={theme.colors.muted} name="map-pin" size={14} />
-        <Text className="flex-1 font-body text-xs text-muted">{location}</Text>
+    </Pressable>
+  );
+}
+
+function ObservationDetail({
+  observation,
+  onBack,
+}: {
+  observation: ObservationHistoryItem;
+  onBack(): void;
+}) {
+  const location =
+    observation.latitude === null || observation.longitude === null
+      ? 'Localização não registrada'
+      : `${observation.latitude.toFixed(4)}, ${observation.longitude.toFixed(4)}`;
+
+  return (
+    <SafeAreaView className="flex-1 bg-canvas px-5 pt-5">
+      <View className="mb-5 flex-row items-center gap-3">
+        <Pressable
+          accessibilityLabel="Voltar ao histórico"
+          accessibilityRole="button"
+          className="h-10 w-10 items-center justify-center rounded-full bg-surface active:opacity-80"
+          onPress={onBack}
+        >
+          <Lucide color={theme.colors.text} name="arrow-left" size={19} />
+        </Pressable>
+        <Text accessibilityRole="header" className="flex-1 font-display text-xl text-ink">
+          Observação
+        </Text>
       </View>
+      <FlatList
+        contentContainerClassName="gap-5 pb-8"
+        data={observation.photos}
+        keyExtractor={(photo) => photo.id}
+        ListHeaderComponent={
+          <View className="gap-4">
+            <View className="gap-1">
+              <Text className="font-display text-2xl text-ink">{observation.title}</Text>
+              <Text className="font-body text-sm text-muted">
+                {formatDateTime(new Date(observation.observedAt))}
+              </Text>
+            </View>
+            {observation.notes ? (
+              <Text className="font-body text-sm leading-6 text-muted">{observation.notes}</Text>
+            ) : null}
+            <View className="flex-row items-center gap-2 rounded-control bg-surface px-4 py-3">
+              <Lucide color={theme.colors.muted} name="map-pin" size={16} />
+              <Text className="flex-1 font-body text-xs text-muted">{location}</Text>
+            </View>
+            <Text className="font-label text-base text-ink">Astrofotos</Text>
+          </View>
+        }
+        ListEmptyComponent={
+          <Text className="font-body text-sm text-muted">Esta observação não possui mídia.</Text>
+        }
+        renderItem={({ item }) =>
+          item.thumbnailUrl ? (
+            <Image
+              accessibilityLabel={`Astrofoto de ${observation.title}`}
+              className="h-72 w-full rounded-card bg-surface-2"
+              resizeMode="cover"
+              source={{ uri: item.thumbnailUrl }}
+            />
+          ) : (
+            <View className="h-32 items-center justify-center rounded-card bg-surface-2">
+              <Lucide color={theme.colors.muted} name="image-off" size={24} />
+            </View>
+          )
+        }
+      />
+    </SafeAreaView>
+  );
+}
+
+function Thumbnail({ observation }: { observation: ObservationHistoryItem }) {
+  const thumbnailUrl = observation.photos[0]?.thumbnailUrl;
+  return thumbnailUrl ? (
+    <Image
+      accessibilityLabel={`Miniatura de ${observation.title}`}
+      className="h-24 w-20 rounded-control bg-surface-2"
+      resizeMode="cover"
+      source={{ uri: thumbnailUrl }}
+    />
+  ) : (
+    <View className="h-24 w-20 items-center justify-center rounded-control bg-surface-2">
+      <Lucide color={theme.colors.accent} name="camera" size={20} />
     </View>
   );
 }

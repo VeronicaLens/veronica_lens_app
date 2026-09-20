@@ -5,10 +5,12 @@ type Request = <T>(path: string, init?: RequestInit) => Promise<T>;
 
 export async function getObservationHistory(
   accessToken: string,
+  page = 1,
+  pageSize = 20,
   request: Request = apiRequest,
-): Promise<ObservationHistoryResponse['data']> {
-  const response = await request<ObservationHistoryResponse>('/observations', {
+): Promise<ObservationHistoryResponse> {
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  return await request<ObservationHistoryResponse>(`/observations?${query.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  return response.data;
 }

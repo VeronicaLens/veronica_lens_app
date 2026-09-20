@@ -39,6 +39,10 @@ export type ObservationHistoryPhoto = {
     id: string;
     storagePath: string;
     capturedAt: string | null;
+    /**
+     * Short-lived signed URL for the authenticated user's private media.
+     */
+    thumbnailUrl: string | null;
 };
 
 export type ObservationHistoryItem = {
@@ -54,6 +58,9 @@ export type ObservationHistoryItem = {
 
 export type ObservationHistoryResponse = {
     data: Array<ObservationHistoryItem>;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
 };
 
 export type Error = {
@@ -763,7 +770,10 @@ export type RecommendObservationWindowResponse = RecommendObservationWindowRespo
 export type ListObservationsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        page?: number;
+        pageSize?: number;
+    };
     url: '/observations';
 };
 
