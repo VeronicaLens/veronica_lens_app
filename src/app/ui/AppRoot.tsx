@@ -3,8 +3,9 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk/700Bold';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getRecoveryAccessToken, useAuthSession } from '../../features/auth/index.ts';
@@ -12,6 +13,7 @@ import { getEventIdFromUrl } from '../../features/astronomical-events/index.ts';
 import {
   clearStoredPushDevice,
   deactivateStoredPushDevice,
+  getEventIdFromNotificationData,
 } from '../../features/notifications/index.ts';
 import { AuthPage } from '../../pages/auth/index.ts';
 import { SkyGuidePage } from '../../pages/camera/index.ts';
@@ -48,6 +50,25 @@ export function AppRoot() {
       handleUrl(url);
     });
     return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const handleResponse = (response: Notifications.NotificationResponse | null) => {
+      const eventId = getEventIdFromNotificationData(response?.notification.request.content.data);
+      if (!eventId) return;
+      setNotificationEventId(eventId);
+      setAuthenticatedPage('events');
+    };
+    let active = true;
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (active) handleResponse(response);
+    });
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    return () => {
+      active = false;
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {
