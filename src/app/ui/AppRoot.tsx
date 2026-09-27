@@ -118,9 +118,12 @@ export function AppRoot() {
             />
           ) : (
             <HomePage
+              accessToken={auth.session.accessToken}
               displayName={profileDisplayName ?? auth.session.user.displayName}
               email={auth.session.user.email}
+              onOpenCamera={() => setAuthenticatedPage('camera')}
               onOpenEvents={() => setAuthenticatedPage('events')}
+              onOpenHistory={() => setAuthenticatedPage('history')}
             />
           )}
           <BottomNavigation activePage={authenticatedPage} onNavigate={setAuthenticatedPage} />
