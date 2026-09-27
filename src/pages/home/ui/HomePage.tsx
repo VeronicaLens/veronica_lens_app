@@ -43,7 +43,7 @@ export function HomePage({
   const upcomingEvents = events.events.slice(0, EVENT_PREVIEW_COUNT);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas">
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
       <ScrollView contentContainerClassName="pb-8" showsVerticalScrollIndicator={false}>
         <ImageBackground resizeMode="cover" source={backgroundImage}>
           <View className="gap-2 bg-canvas/40 px-6 pb-8 pt-6">

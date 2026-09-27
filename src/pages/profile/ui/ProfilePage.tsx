@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
 import {
   ActivityIndicator,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,14 +19,21 @@ import {
   requestAndRegisterPushDevice,
   useEventPreferences,
 } from '../../../features/notifications/index.ts';
+import {
+  categorizeObservation,
+  useObservationHistory,
+} from '../../../features/observation-history/index.ts';
 import type { AppLanguage, MeasurementUnit, Profile } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 import { Button, TextField } from '../../../shared/ui/index.ts';
+
+const backgroundImage = require('../../../../assets/loading-background.jpeg') as number;
 
 interface ProfilePageProps {
   accessToken: string;
   email: string;
   onLogout(): Promise<void>;
+  onOpenHistory(): void;
   onSaved(profile: Profile): void;
 }
 
@@ -68,6 +76,38 @@ function PreferenceRow({
   );
 }
 
+function StatCard({
+  icon,
+  label,
+  onPress,
+  value,
+}: {
+  icon: LucideIconName;
+  label: string;
+  onPress(): void;
+  value: number;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`${label}: ${value}`}
+      accessibilityRole="button"
+      className="flex-1 gap-3 rounded-card border border-border bg-surface p-4 active:opacity-80"
+      onPress={onPress}
+    >
+      <View className="flex-row items-center justify-between">
+        <Lucide color={theme.colors.accent} name={icon} size={20} />
+        <Lucide color={theme.colors.muted} name="chevron-right" size={14} />
+      </View>
+      <View className="gap-0.5">
+        <Text className="font-display text-xl text-ink">{value}</Text>
+        <Text className="font-body text-[10px] leading-3 text-muted" numberOfLines={2}>
+          {label}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 function MenuRow({ icon, label }: { icon: LucideIconName; label: string }) {
   return (
     <View
@@ -82,33 +122,18 @@ function MenuRow({ icon, label }: { icon: LucideIconName; label: string }) {
   );
 }
 
-function Choice<T extends string>({
-  value,
-  selected,
-  label,
-  onSelect,
-}: {
-  value: T;
-  selected: boolean;
-  label: string;
-  onSelect(value: T): void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      className={`flex-1 items-center rounded-pill border px-3 py-3 ${selected ? 'border-brand bg-brand' : 'border-border bg-surface-2'}`}
-      onPress={() => onSelect(value)}
-    >
-      <Text className="font-label text-xs text-ink">{label}</Text>
-    </Pressable>
-  );
-}
-
-export function ProfilePage({ accessToken, email, onLogout, onSaved }: ProfilePageProps) {
+export function ProfilePage({
+  accessToken,
+  email,
+  onLogout,
+  onOpenHistory,
+  onSaved,
+}: ProfilePageProps) {
   const { profile, loading, saving, error, load, save } = useProfile(accessToken);
   const eventPreferences = useEventPreferences(accessToken);
+  const history = useObservationHistory(accessToken);
   const [editing, setEditing] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [locationName, setLocationName] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -188,236 +213,283 @@ export function ProfilePage({ accessToken, email, onLogout, onSaved }: ProfilePa
   };
 
   const initial = (profile?.displayName?.trim()[0] ?? email.trim()[0] ?? 'V').toUpperCase();
+  const stats = useMemo(() => {
+    const moonCount = history.observations.filter(
+      (observation) => categorizeObservation(observation) === 'moon',
+    ).length;
+    const skyCount = history.observations.filter(
+      (observation) => categorizeObservation(observation) !== 'moon',
+    ).length;
+    return { total: history.observations.length, moonCount, skyCount };
+  }, [history.observations]);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas">
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          contentContainerClassName="gap-7 px-5 pb-8 pt-5"
-          keyboardShouldPersistTaps="handled"
-        >
-          <Text accessibilityRole="header" className="font-display text-[28px] text-ink">
-            Perfil
-          </Text>
-
-          {loading ? (
-            <View className="items-center gap-3 rounded-card bg-surface p-8">
-              <ActivityIndicator color={theme.colors.primary} />
-              <Text className="font-body text-sm text-muted">Carregando preferências...</Text>
-            </View>
-          ) : !profile ? (
-            <View className="gap-4 rounded-card bg-surface p-5">
-              <Text accessibilityLiveRegion="polite" className="font-body text-sm text-muted">
-                {error ?? 'Perfil indisponível.'}
+        <ScrollView contentContainerClassName="pb-8" keyboardShouldPersistTaps="handled">
+          <ImageBackground resizeMode="cover" source={backgroundImage}>
+            <View className="gap-2 bg-canvas/40 px-5 pb-6 pt-5">
+              {editing ? (
+                <Pressable
+                  accessibilityLabel="Voltar ao perfil"
+                  accessibilityRole="button"
+                  className="mb-1 h-10 w-10 items-center justify-center rounded-full bg-surface active:opacity-80"
+                  onPress={() => setEditing(false)}
+                >
+                  <Lucide color={theme.colors.text} name="chevron-left" size={19} />
+                </Pressable>
+              ) : null}
+              <Text className="font-label text-[11px] uppercase tracking-[3px] text-accent">
+                VeronicaLens
               </Text>
-              <Button label="Tentar novamente" onPress={() => void load()} variant="secondary" />
+              <Text accessibilityRole="header" className="font-display text-[32px] text-ink">
+                {editing ? (
+                  <>
+                    Editar <Text className="text-accent">perfil</Text>
+                  </>
+                ) : (
+                  'Perfil'
+                )}
+              </Text>
+              <Text className="font-body text-sm leading-5 text-muted">
+                {editing
+                  ? 'Personalize suas informações e deixe sua jornada ainda mais sua.'
+                  : 'Sua jornada pelo universo começa aqui.'}
+              </Text>
             </View>
-          ) : editing ? (
-            <View className="gap-5">
+          </ImageBackground>
+
+          <View className="gap-7 px-5 pt-6">
+            {loading ? (
+              <View className="items-center gap-3 rounded-card bg-surface p-8">
+                <ActivityIndicator color={theme.colors.primary} />
+                <Text className="font-body text-sm text-muted">Carregando preferências...</Text>
+              </View>
+            ) : !profile ? (
               <View className="gap-4 rounded-card bg-surface p-5">
-                <Text className="font-display text-lg text-ink">Editar perfil</Text>
-                <TextField
-                  label="Nome"
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  placeholder="Como devemos chamar você?"
-                />
-                <TextField
-                  label="Local"
-                  value={locationName}
-                  onChangeText={setLocationName}
-                  placeholder="Ex.: São Paulo"
-                />
-                <View className="flex-row gap-3">
-                  <View className="flex-1">
-                    <TextField
-                      label="Latitude"
-                      value={latitude}
-                      onChangeText={setLatitude}
-                      keyboardType="numbers-and-punctuation"
-                      placeholder="-23.5505"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <TextField
-                      label="Longitude"
-                      value={longitude}
-                      onChangeText={setLongitude}
-                      keyboardType="numbers-and-punctuation"
-                      placeholder="-46.6333"
-                    />
-                  </View>
-                </View>
-                <Text className="font-label text-[11px] uppercase tracking-wide text-accent">
-                  Unidades
+                <Text accessibilityLiveRegion="polite" className="font-body text-sm text-muted">
+                  {error ?? 'Perfil indisponível.'}
                 </Text>
-                <View accessibilityRole="radiogroup" className="flex-row gap-2">
-                  <Choice<MeasurementUnit>
-                    value="metric"
-                    label="Métricas"
-                    selected={measurementUnit === 'metric'}
-                    onSelect={setMeasurementUnit}
-                  />
-                  <Choice<MeasurementUnit>
-                    value="imperial"
-                    label="Imperiais"
-                    selected={measurementUnit === 'imperial'}
-                    onSelect={setMeasurementUnit}
-                  />
-                </View>
-                <Text className="font-label text-[11px] uppercase tracking-wide text-accent">
-                  Idioma
-                </Text>
-                <View accessibilityRole="radiogroup" className="flex-row gap-2">
-                  <Choice<AppLanguage>
-                    value="pt-BR"
-                    label="Português"
-                    selected={language === 'pt-BR'}
-                    onSelect={setLanguage}
-                  />
-                  <Choice<AppLanguage>
-                    value="en"
-                    label="English"
-                    selected={language === 'en'}
-                    onSelect={setLanguage}
-                  />
-                </View>
+                <Button label="Tentar novamente" onPress={() => void load()} variant="secondary" />
               </View>
-              {(formError || error) && (
-                <Text accessibilityLiveRegion="polite" className="font-body text-sm text-event">
-                  {formError ?? error}
-                </Text>
-              )}
-              <Button label="Salvar alterações" busy={saving} onPress={() => void handleSave()} />
-              <Button
-                label="Cancelar"
-                disabled={saving}
-                onPress={() => setEditing(false)}
-                variant="ghost"
-              />
-            </View>
-          ) : (
-            <>
-              <View className="flex-row items-center gap-4">
-                <View className="h-14 w-14 items-center justify-center rounded-full bg-elevated">
-                  <Text className="font-display text-xl text-accent">{initial}</Text>
-                </View>
-                <View className="flex-1 gap-1">
-                  <Text className="font-label text-base text-ink">
-                    {profile.displayName ?? 'Exploradora do céu'}
-                  </Text>
-                  <Text className="font-body text-[11px] text-muted">
-                    {profile.locationName ?? email}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  className="min-w-[76px] flex-row items-center justify-center gap-2 rounded-pill bg-[#292354] px-4 py-2 active:opacity-80"
-                  onPress={() => setEditing(true)}
-                >
-                  <Lucide color={theme.colors.accent} name="pencil" size={12} />
-                  <Text className="font-label text-[10px] text-accent">Editar</Text>
-                </Pressable>
-              </View>
-
-              <View className="gap-3">
-                <Text className="font-label text-base text-ink">Preferências</Text>
-                <PreferenceRow
-                  disabled
-                  icon="moon"
-                  iconColor={theme.colors.accent}
-                  title="Modo noturno"
-                  subtitle="Preservar visão noturna"
-                  value
-                />
-                <PreferenceRow
-                  icon="bell"
-                  iconColor={theme.colors.info}
-                  title="Notificações"
-                  subtitle="Eventos e janelas ideais"
-                  value={profile.notificationsEnabled}
-                  onChange={(value) => void persistNotifications(value)}
-                />
-                <PreferenceRow
-                  icon="map-pin"
-                  iconColor={theme.colors.info}
-                  title="Localização"
-                  subtitle={profile.locationName ?? 'Usar durante observação'}
-                  value={profile.latitude !== null && profile.longitude !== null}
-                  onChange={(value) => void changeLocation(value)}
-                />
-                {profile.notificationsEnabled ? (
-                  <View className="gap-3 pt-1">
-                    <Text className="font-label text-xs text-ink">Alertas de eventos</Text>
-                    {eventPreferences.preferences.map((preference) => (
-                      <PreferenceRow
-                        key={preference.eventType}
-                        disabled={eventPreferences.saving}
-                        icon="calendar-clock"
-                        iconColor={theme.colors.accent}
-                        title={eventLabel(preference.eventType)}
-                        subtitle={`Avisar ${preference.leadMinutes} min antes`}
-                        value={preference.enabled}
-                        onChange={(value) =>
-                          void eventPreferences.setEnabled(preference.eventType, value)
-                        }
+            ) : editing ? (
+              <View className="gap-5">
+                <View className="gap-4 rounded-card bg-surface p-5">
+                  <View className="items-center pb-2">
+                    <View className="h-20 w-20 items-center justify-center rounded-full bg-elevated">
+                      <Text className="font-display text-3xl text-accent">{initial}</Text>
+                    </View>
+                    <Pressable
+                      accessibilityLabel="Alterar foto de perfil"
+                      accessibilityRole="button"
+                      className="absolute bottom-0 right-[calc(50%-40px)] h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-2 active:opacity-80"
+                      onPress={() => setPhotoMessage('Upload de foto em breve.')}
+                    >
+                      <Lucide color={theme.colors.muted} name="camera" size={14} />
+                    </Pressable>
+                  </View>
+                  {photoMessage ? (
+                    <Text className="text-center font-body text-xs text-muted">{photoMessage}</Text>
+                  ) : null}
+                  <TextField
+                    icon="user"
+                    label="Nome"
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    placeholder="Como devemos chamar você?"
+                  />
+                  <TextField
+                    icon="map-pin"
+                    label="Local"
+                    value={locationName}
+                    onChangeText={setLocationName}
+                    placeholder="Ex.: São Paulo"
+                  />
+                  <View className="flex-row gap-3">
+                    <View className="flex-1">
+                      <TextField
+                        icon="locate-fixed"
+                        label="Latitude"
+                        value={latitude}
+                        onChangeText={setLatitude}
+                        keyboardType="numbers-and-punctuation"
+                        placeholder="-23.5505"
                       />
-                    ))}
-                    {eventPreferences.error ? (
-                      <Text
-                        accessibilityLiveRegion="polite"
-                        className="font-body text-xs text-event"
-                      >
-                        {eventPreferences.error}
-                      </Text>
-                    ) : null}
+                    </View>
+                    <View className="flex-1">
+                      <TextField
+                        icon="locate-fixed"
+                        label="Longitude"
+                        value={longitude}
+                        onChangeText={setLongitude}
+                        keyboardType="numbers-and-punctuation"
+                        placeholder="-46.6333"
+                      />
+                    </View>
                   </View>
-                ) : null}
-                {saving && <ActivityIndicator color={theme.colors.primary} />}
-                {error && (
-                  <Text accessibilityLiveRegion="polite" className="font-body text-xs text-event">
-                    {error}
+                </View>
+                {(formError || error) && (
+                  <Text accessibilityLiveRegion="polite" className="font-body text-sm text-event">
+                    {formError ?? error}
                   </Text>
                 )}
-                {saved && (
-                  <Text accessibilityLiveRegion="polite" className="font-body text-xs text-info">
-                    Preferências salvas.
-                  </Text>
-                )}
+                <Button
+                  busy={saving}
+                  icon="arrow-right"
+                  label="Salvar alterações"
+                  onPress={() => void handleSave()}
+                />
+                <Button
+                  label="Cancelar"
+                  disabled={saving}
+                  onPress={() => setEditing(false)}
+                  variant="ghost"
+                />
               </View>
+            ) : (
+              <>
+                <View className="flex-row items-center gap-4">
+                  <View className="h-14 w-14 items-center justify-center rounded-full bg-elevated">
+                    <Text className="font-display text-xl text-accent">{initial}</Text>
+                  </View>
+                  <View className="flex-1 gap-1">
+                    <Text className="font-label text-base text-ink">
+                      {profile.displayName ?? 'Exploradora do céu'}
+                    </Text>
+                    <Text className="font-body text-[11px] text-muted">
+                      {profile.locationName ?? email}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    className="min-w-[76px] flex-row items-center justify-center gap-2 rounded-pill bg-[#292354] px-4 py-2 active:opacity-80"
+                    onPress={() => setEditing(true)}
+                  >
+                    <Lucide color={theme.colors.accent} name="pencil" size={12} />
+                    <Text className="font-label text-[10px] text-accent">Editar</Text>
+                  </Pressable>
+                </View>
 
-              <View className="gap-3">
-                <Text className="font-label text-base text-ink">Conta e privacidade</Text>
-                <MenuRow icon="shield-check" label="Dados e privacidade" />
-                <MenuRow icon="smartphone" label="Permissões do dispositivo" />
-                <MenuRow icon="info" label="Sobre o VeronicaLens" />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ busy: loggingOut, disabled: loggingOut }}
-                  className="mt-2 min-h-12 flex-row items-center justify-center gap-2 rounded-pill border border-border bg-surface active:opacity-75"
-                  disabled={loggingOut}
-                  onPress={() => {
-                    setLoggingOut(true);
-                    void onLogout()
-                      .catch(() => undefined)
-                      .finally(() => setLoggingOut(false));
-                  }}
-                >
-                  {loggingOut ? (
-                    <ActivityIndicator color={theme.colors.event} />
-                  ) : (
-                    <>
-                      <Lucide color={theme.colors.event} name="log-out" size={17} />
-                      <Text className="font-label text-xs text-event">Sair da conta</Text>
-                    </>
+                <View className="flex-row gap-3">
+                  <StatCard
+                    icon="telescope"
+                    label="Observações"
+                    onPress={onOpenHistory}
+                    value={stats.total}
+                  />
+                  <StatCard
+                    icon="moon"
+                    label="Astrofoto de Lua"
+                    onPress={onOpenHistory}
+                    value={stats.moonCount}
+                  />
+                  <StatCard
+                    icon="sparkles"
+                    label="Astrofoto de céu"
+                    onPress={onOpenHistory}
+                    value={stats.skyCount}
+                  />
+                </View>
+
+                <View className="gap-3">
+                  <Text className="font-label text-base text-ink">Preferências</Text>
+                  <PreferenceRow
+                    disabled
+                    icon="moon"
+                    iconColor={theme.colors.accent}
+                    title="Modo noturno"
+                    subtitle="Preservar visão noturna"
+                    value
+                  />
+                  <PreferenceRow
+                    icon="bell"
+                    iconColor={theme.colors.info}
+                    title="Notificações"
+                    subtitle="Eventos e janelas ideais"
+                    value={profile.notificationsEnabled}
+                    onChange={(value) => void persistNotifications(value)}
+                  />
+                  <PreferenceRow
+                    icon="map-pin"
+                    iconColor={theme.colors.info}
+                    title="Localização"
+                    subtitle={profile.locationName ?? 'Usar durante observação'}
+                    value={profile.latitude !== null && profile.longitude !== null}
+                    onChange={(value) => void changeLocation(value)}
+                  />
+                  {profile.notificationsEnabled ? (
+                    <View className="gap-3 pt-1">
+                      <Text className="font-label text-xs text-ink">Alertas de eventos</Text>
+                      {eventPreferences.preferences.map((preference) => (
+                        <PreferenceRow
+                          key={preference.eventType}
+                          disabled={eventPreferences.saving}
+                          icon="calendar-clock"
+                          iconColor={theme.colors.accent}
+                          title={eventLabel(preference.eventType)}
+                          subtitle={`Avisar ${preference.leadMinutes} min antes`}
+                          value={preference.enabled}
+                          onChange={(value) =>
+                            void eventPreferences.setEnabled(preference.eventType, value)
+                          }
+                        />
+                      ))}
+                      {eventPreferences.error ? (
+                        <Text
+                          accessibilityLiveRegion="polite"
+                          className="font-body text-xs text-event"
+                        >
+                          {eventPreferences.error}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  {saving && <ActivityIndicator color={theme.colors.primary} />}
+                  {error && (
+                    <Text accessibilityLiveRegion="polite" className="font-body text-xs text-event">
+                      {error}
+                    </Text>
                   )}
-                </Pressable>
-              </View>
-            </>
-          )}
+                  {saved && (
+                    <Text accessibilityLiveRegion="polite" className="font-body text-xs text-info">
+                      Preferências salvas.
+                    </Text>
+                  )}
+                </View>
+
+                <View className="gap-3">
+                  <Text className="font-label text-base text-ink">Conta e privacidade</Text>
+                  <MenuRow icon="shield-check" label="Dados e privacidade" />
+                  <MenuRow icon="smartphone" label="Permissões do dispositivo" />
+                  <MenuRow icon="info" label="Sobre o VeronicaLens" />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ busy: loggingOut, disabled: loggingOut }}
+                    className="mt-2 min-h-12 flex-row items-center justify-center gap-2 rounded-pill border border-border bg-surface active:opacity-75"
+                    disabled={loggingOut}
+                    onPress={() => {
+                      setLoggingOut(true);
+                      void onLogout()
+                        .catch(() => undefined)
+                        .finally(() => setLoggingOut(false));
+                    }}
+                  >
+                    {loggingOut ? (
+                      <ActivityIndicator color={theme.colors.event} />
+                    ) : (
+                      <>
+                        <Lucide color={theme.colors.event} name="log-out" size={17} />
+                        <Text className="font-label text-xs text-event">Sair da conta</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

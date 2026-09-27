@@ -101,6 +101,7 @@ export function AppRoot() {
                 }
                 await auth.logout();
               }}
+              onOpenHistory={() => setAuthenticatedPage('history')}
               onSaved={(profile) => setProfileDisplayName(profile.displayName)}
             />
           ) : authenticatedPage === 'history' ? (

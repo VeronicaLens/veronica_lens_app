@@ -1,3 +1,4 @@
+import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
 import { ActivityIndicator, Pressable, Text } from 'react-native';
 
 import { theme } from '../config/index.ts';
@@ -7,6 +8,7 @@ interface ButtonProps {
   onPress(): void;
   busy?: boolean;
   disabled?: boolean;
+  icon?: LucideIconName;
   variant?: 'primary' | 'secondary' | 'ghost';
 }
 
@@ -15,6 +17,7 @@ export function Button({
   onPress,
   busy = false,
   disabled = false,
+  icon,
   variant = 'primary',
 }: ButtonProps) {
   const isDisabled = disabled || busy;
@@ -25,7 +28,7 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ busy, disabled: isDisabled }}
-      className={`h-11 min-h-11 items-center justify-center rounded-pill border px-5 active:opacity-80 ${
+      className={`h-11 min-h-11 flex-row items-center justify-center gap-2 rounded-pill border px-5 active:opacity-80 ${
         primary
           ? 'border-brand bg-brand'
           : secondary
@@ -38,9 +41,20 @@ export function Button({
       {busy ? (
         <ActivityIndicator color={primary ? theme.colors.text : theme.colors.accent} />
       ) : (
-        <Text className={`font-label text-xs ${primary || secondary ? 'text-ink' : 'text-accent'}`}>
-          {label}
-        </Text>
+        <>
+          <Text
+            className={`font-label text-xs ${primary || secondary ? 'text-ink' : 'text-accent'}`}
+          >
+            {label}
+          </Text>
+          {icon ? (
+            <Lucide
+              color={primary || secondary ? theme.colors.text : theme.colors.accent}
+              name={icon}
+              size={15}
+            />
+          ) : null}
+        </>
       )}
     </Pressable>
   );

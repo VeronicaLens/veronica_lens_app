@@ -35,7 +35,7 @@ export function EventDetailPage({
   const config = eventTypeConfig(event.type);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas">
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-28 pt-5">
         <Pressable
           accessibilityLabel="Voltar para eventos"

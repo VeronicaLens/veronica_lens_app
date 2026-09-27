@@ -11,37 +11,18 @@ import {
 import { useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useObservationHistory } from '../../../features/observation-history/index.ts';
+import {
+  useObservationHistory,
+  categorizeObservation,
+  observationCategoryConfig,
+} from '../../../features/observation-history/index.ts';
+
 import type { ObservationHistoryItem } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 
 const backgroundImage = require('../../../../assets/loading-background.jpeg') as number;
 
 type Category = 'all' | 'moon' | 'planet' | 'other';
-
-const categoryConfig: Record<Exclude<Category, 'all'>, { icon: LucideIconName; label: string }> = {
-  moon: { icon: 'moon', label: 'Lua' },
-  planet: { icon: 'orbit', label: 'Planetas' },
-  other: { icon: 'sparkles', label: 'Céu profundo' },
-};
-
-const planetNames = [
-  'mercúrio',
-  'vênus',
-  'terra',
-  'marte',
-  'júpiter',
-  'saturno',
-  'urano',
-  'netuno',
-];
-
-function categorize(observation: ObservationHistoryItem): Exclude<Category, 'all'> {
-  const name = observation.celestialObjectName?.toLowerCase() ?? '';
-  if (name.includes('lua')) return 'moon';
-  if (planetNames.some((planet) => name.includes(planet))) return 'planet';
-  return 'other';
-}
 
 interface ObservationHistoryPageProps {
   accessToken: string;
@@ -58,7 +39,7 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
     () =>
       category === 'all'
         ? observations
-        : observations.filter((observation) => categorize(observation) === category),
+        : observations.filter((observation) => categorizeObservation(observation) === category),
     [category, observations],
   );
 
@@ -72,7 +53,7 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas">
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
       <FlatList
         contentContainerClassName="flex-grow pb-8"
         data={filteredObservations}
@@ -215,7 +196,7 @@ function ObservationCard({
     observation.latitude === null || observation.longitude === null
       ? 'Localização não registrada'
       : `${observation.latitude.toFixed(4)}, ${observation.longitude.toFixed(4)}`;
-  const category = categoryConfig[categorize(observation)];
+  const category = observationCategoryConfig[categorizeObservation(observation)];
 
   return (
     <Pressable
@@ -277,7 +258,7 @@ function ObservationDetail({
       : `${observation.latitude.toFixed(4)}, ${observation.longitude.toFixed(4)}`;
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas px-5 pt-5">
+    <SafeAreaView className="flex-1 bg-canvas px-5 pt-5" edges={['top', 'left', 'right']}>
       <View className="mb-5 flex-row items-center gap-3">
         <Pressable
           accessibilityLabel="Voltar ao histórico"

@@ -66,7 +66,7 @@ export function EventsPage({
     !activeEvent
   ) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas px-5 pt-5">
+      <SafeAreaView className="flex-1 bg-canvas px-5 pt-5" edges={['top', 'left', 'right']}>
         <EmptyState
           icon="calendar-x"
           title="Evento não encontrado"
@@ -79,7 +79,7 @@ export function EventsPage({
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas">
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
       <FlatList
         contentContainerClassName="px-5 pb-8 pt-5"
         data={canShowEvents ? events.events : []}

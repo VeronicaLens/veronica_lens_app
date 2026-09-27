@@ -516,7 +516,10 @@ function PermissionFallback({
   onAction(): void;
 }) {
   return (
-    <SafeAreaView className="flex-1 items-center justify-center bg-canvas px-6">
+    <SafeAreaView
+      className="flex-1 items-center justify-center bg-canvas px-6"
+      edges={['top', 'left', 'right']}
+    >
       <View className="w-full max-w-md items-center gap-4 rounded-panel border border-border bg-surface p-6">
         <View className="h-14 w-14 items-center justify-center rounded-full bg-surface-2">
           <Lucide color={theme.colors.accent} name={icon} size={26} />
