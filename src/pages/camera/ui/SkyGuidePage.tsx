@@ -70,6 +70,9 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const [query, setQuery] = useState('');
   const [redNightMode, setRedNightMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [assistedExpanded, setAssistedExpanded] = useState(false);
+  const [zoomPreset, setZoomPreset] = useState<'0.5x' | '1x' | '2x'>('1x');
   const location = useDeviceLocation(cameraGranted);
   const orientation = useDeviceOrientation(cameraGranted);
   const sky = useSkyGuidePositions(accessToken, location.location, location.status === 'active');
@@ -245,26 +248,60 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
 
         {assistedCapturePlan ? (
           <View
-            className="mx-4 mt-3 gap-2 rounded-control border px-3 py-3"
-            style={{ backgroundColor: surface, borderColor: border }}
+            className="absolute left-3 right-3 gap-2 rounded-control border px-3 py-2.5"
+            style={{ backgroundColor: surface, borderColor: border, bottom: 96 }}
           >
-            <View className="flex-row items-center gap-2">
-              <Lucide color={accent} name="sparkles" size={16} />
-              <Text className="font-label text-xs text-ink">Captura assistida</Text>
-            </View>
-            {assistedCapturePlan.recommendations.map((recommendation) => (
-              <View key={recommendation.id} className="flex-row items-start gap-2">
-                <Lucide color={accent} name="check" size={13} />
-                <View className="flex-1">
-                  <Text className="font-label text-[10px] text-ink">{recommendation.title}</Text>
-                  <Text className="font-body text-[9px] leading-3 text-muted">
-                    {recommendation.detail}
-                  </Text>
-                </View>
-              </View>
-            ))}
+            <Pressable
+              accessibilityRole="button"
+              className="flex-row items-center gap-2 active:opacity-70"
+              onPress={() => setAssistedExpanded((value) => !value)}
+            >
+              <Lucide color={accent} name="sparkles" size={14} />
+              <Text className="font-label text-[11px] text-ink">Captura assistida</Text>
+              <View className="h-3 w-px" style={{ backgroundColor: border }} />
+              <Text className="font-body text-[11px] text-muted">
+                Exposição {assistedCapturePlan.exposureCompensationEv >= 0 ? '+' : ''}
+                {assistedCapturePlan.exposureCompensationEv} EV
+              </Text>
+              <View className="flex-1" />
+              <Lucide
+                color={theme.colors.muted}
+                name={assistedExpanded ? 'chevron-down' : 'chevron-right'}
+                size={14}
+              />
+            </Pressable>
+            {assistedExpanded
+              ? assistedCapturePlan.recommendations.map((recommendation) => (
+                  <View key={recommendation.id} className="flex-row items-start gap-2 pt-1">
+                    <Lucide color={accent} name="check" size={13} />
+                    <View className="flex-1">
+                      <Text className="font-label text-[10px] text-ink">
+                        {recommendation.title}
+                      </Text>
+                      <Text className="font-body text-[9px] leading-3 text-muted">
+                        {recommendation.detail}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              : null}
           </View>
         ) : null}
+
+        <View
+          className="absolute left-3 right-3 flex-row items-center gap-2 rounded-pill border px-4 py-2.5"
+          style={{
+            backgroundColor: surface,
+            borderColor: border,
+            bottom: assistedCapturePlan ? 150 : 96,
+          }}
+        >
+          <Lucide color={accent} name="sparkles" size={14} />
+          <Text className="flex-1 font-body text-xs text-ink">
+            Aponte para o céu e mova lentamente
+          </Text>
+          <Lucide color={theme.colors.muted} name="chevron-right" size={16} />
+        </View>
 
         <View pointerEvents="none" style={styles.reticle}>
           <View style={[styles.reticleCircle, { borderColor: accent }]} />
@@ -278,7 +315,10 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
               key={celestialObject.id}
               accessibilityLabel={`${celestialObject.object.name}, altitude ${Math.round(celestialObject.altitudeDegrees)} graus`}
               className="absolute items-center active:opacity-70"
-              onPress={() => setSelectedId(celestialObject.id)}
+              onPress={() => {
+                setSelectedId(celestialObject.id);
+                setDetailsExpanded(false);
+              }}
               style={{ left: x - 48, top: y - 14, width: 96 }}
             >
               <View
@@ -297,24 +337,27 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
           ))}
         </View>
 
-        {!selectedObject ? (
-          <View
-            className="absolute bottom-24 self-center rounded-pill border px-4 py-2"
-            style={{ backgroundColor: surface, borderColor: border }}
-          >
-            <Text className="font-body text-[11px] text-ink">
-              Mova lentamente para explorar o céu
-            </Text>
+        {selectedObject ? (
+          <View pointerEvents="box-none" style={styles.objectLabel}>
+            <Pressable
+              accessibilityRole="button"
+              className="flex-row items-center gap-2 rounded-pill border px-3 py-1.5 active:opacity-80"
+              onPress={() => setDetailsExpanded((value) => !value)}
+              style={{ backgroundColor: surface, borderColor: border }}
+            >
+              <Text className="font-label text-sm" style={{ color: accent }}>
+                {selectedObject.name}
+              </Text>
+              <Lucide color={theme.colors.muted} name="info" size={14} />
+            </Pressable>
           </View>
-        ) : (
+        ) : null}
+
+        {selectedObject && detailsExpanded ? (
           <View
             className="absolute left-3 right-3 gap-3 rounded-panel border p-4"
-            style={{ backgroundColor: surface, borderColor: border, bottom: 92 }}
+            style={{ backgroundColor: surface, borderColor: border, bottom: 206 }}
           >
-            <View
-              className="h-1 w-12 self-center rounded-pill"
-              style={{ backgroundColor: border }}
-            />
             <View className="flex-row items-start">
               <View className="flex-1 gap-1">
                 <Text className="font-display text-xl" style={{ color: accent }}>
@@ -329,14 +372,14 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
               <Pressable
                 accessibilityLabel="Fechar detalhes"
                 className="p-2"
-                onPress={() => setSelectedId(null)}
+                onPress={() => {
+                  setSelectedId(null);
+                  setDetailsExpanded(false);
+                }}
               >
                 <Lucide color={theme.colors.muted} name="x" size={18} />
               </Pressable>
             </View>
-            <Text className="font-body text-xs leading-5 text-ink">
-              Objeto identificado no campo atual da câmera.
-            </Text>
             <View className="gap-1 rounded-control bg-surface-2 px-3 py-2">
               {planning.loading ? (
                 <View className="flex-row items-center gap-2">
@@ -366,24 +409,73 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
               ) : null}
             </View>
           </View>
-        )}
+        ) : null}
 
-        <Pressable
-          accessibilityLabel="Capturar foto do céu"
-          accessibilityRole="button"
-          accessibilityState={{ busy: captureBusy, disabled: !cameraReady || captureBusy }}
-          className="absolute bottom-4 h-[68px] w-[68px] items-center justify-center self-center rounded-full border-2 border-ink bg-canvas/60 active:opacity-75"
-          disabled={!cameraReady || captureBusy}
-          onPress={() => void capturePhoto()}
-        >
-          {captureBusy ? (
-            <ActivityIndicator color={accent} />
-          ) : (
-            <View className="h-[52px] w-[52px] rounded-full" style={{ backgroundColor: accent }} />
-          )}
-        </Pressable>
+        <View className="absolute bottom-4 w-full flex-row items-center justify-center gap-8">
+          <ZoomButton
+            active={zoomPreset === '0.5x'}
+            color={accent}
+            label="0.5x"
+            onPress={() => setZoomPreset('0.5x')}
+          />
+          <Pressable
+            accessibilityLabel="Capturar foto do céu"
+            accessibilityRole="button"
+            accessibilityState={{ busy: captureBusy, disabled: !cameraReady || captureBusy }}
+            className="h-[68px] w-[68px] items-center justify-center rounded-full border-2 border-ink bg-canvas/60 active:opacity-75"
+            disabled={!cameraReady || captureBusy}
+            onPress={() => void capturePhoto()}
+          >
+            {captureBusy ? (
+              <ActivityIndicator color={accent} />
+            ) : (
+              <View
+                className="h-[52px] w-[52px] rounded-full"
+                style={{ backgroundColor: accent }}
+              />
+            )}
+          </Pressable>
+          <ZoomButton
+            active={zoomPreset === '2x'}
+            color={accent}
+            label="2x"
+            onPress={() => setZoomPreset('2x')}
+          />
+        </View>
       </SafeAreaView>
     </View>
+  );
+}
+
+function ZoomButton({
+  active,
+  color,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  color: string;
+  label: string;
+  onPress(): void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`Zoom ${label}`}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      className={`h-11 w-11 items-center justify-center rounded-full border active:opacity-75 ${
+        active ? 'bg-surface-2' : 'bg-canvas/60'
+      }`}
+      onPress={onPress}
+      style={{ borderColor: active ? color : 'rgba(255,255,255,0.3)' }}
+    >
+      <Text
+        className="font-label text-[11px]"
+        style={{ color: active ? color : theme.colors.text }}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -530,4 +622,12 @@ const styles = StyleSheet.create({
   },
   reticleHorizontal: { position: 'absolute', width: 94, height: 1, opacity: 0.72 },
   reticleVertical: { position: 'absolute', width: 1, height: 94, opacity: 0.72 },
+  objectLabel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '44%',
+    marginTop: 58,
+    alignItems: 'center',
+  },
 });
