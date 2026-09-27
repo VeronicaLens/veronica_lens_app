@@ -1,5 +1,12 @@
 import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
-import { ImageBackground, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUpcomingEvents } from '../../../features/astronomical-events/index.ts';
@@ -26,6 +33,7 @@ interface HomePageProps {
   displayName: string | null;
   email: string;
   onOpenCamera(): void;
+  onOpenEvent(eventId: string): void;
   onOpenEvents(): void;
   onOpenHistory(): void;
 }
@@ -35,6 +43,7 @@ export function HomePage({
   displayName,
   email,
   onOpenCamera,
+  onOpenEvent,
   onOpenEvents,
   onOpenHistory,
 }: HomePageProps) {
@@ -77,11 +86,46 @@ export function HomePage({
               </Pressable>
             </View>
 
-            {upcomingEvents.length > 0 ? (
+            {location.fallbackMessage ? (
+              <Pressable
+                accessibilityRole="button"
+                className="flex-row items-center gap-3 rounded-card border border-border bg-surface p-5 active:opacity-80"
+                onPress={location.retry}
+              >
+                <Lucide color={theme.colors.muted} name="map-pin-off" size={20} />
+                <Text className="flex-1 font-body text-sm leading-5 text-muted">
+                  {location.fallbackMessage}
+                </Text>
+              </Pressable>
+            ) : location.status !== 'active' || events.loading ? (
+              <View className="flex-row items-center gap-3 rounded-card border border-border bg-surface p-5">
+                <ActivityIndicator color={theme.colors.primary} />
+                <Text className="flex-1 font-body text-sm leading-5 text-muted">
+                  {location.status === 'active'
+                    ? 'Calculando próximos eventos...'
+                    : 'Obtendo sua localização...'}
+                </Text>
+              </View>
+            ) : events.error ? (
+              <Pressable
+                accessibilityRole="button"
+                className="flex-row items-center gap-3 rounded-card border border-border bg-surface p-5 active:opacity-80"
+                onPress={events.refresh}
+              >
+                <Lucide color={theme.colors.event} name="cloud-off" size={20} />
+                <Text className="flex-1 font-body text-sm leading-5 text-muted">
+                  {events.error}
+                </Text>
+              </Pressable>
+            ) : upcomingEvents.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View className="flex-row gap-3">
                   {upcomingEvents.map((event) => (
-                    <EventPreviewCard key={event.id} event={event} onPress={onOpenEvents} />
+                    <EventPreviewCard
+                      key={event.id}
+                      event={event}
+                      onPress={() => onOpenEvent(event.id)}
+                    />
                   ))}
                 </View>
               </ScrollView>

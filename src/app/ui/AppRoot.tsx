@@ -123,6 +123,10 @@ export function AppRoot() {
               displayName={profileDisplayName ?? auth.session.user.displayName}
               email={auth.session.user.email}
               onOpenCamera={() => setAuthenticatedPage('camera')}
+              onOpenEvent={(eventId) => {
+                setNotificationEventId(eventId);
+                setAuthenticatedPage('events');
+              }}
               onOpenEvents={() => setAuthenticatedPage('events')}
               onOpenHistory={() => setAuthenticatedPage('history')}
             />
