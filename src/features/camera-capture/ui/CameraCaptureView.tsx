@@ -18,6 +18,7 @@ import {
   applyAssistedCapturePlan,
   createAssistedCapturePlan,
   createAstroPhotoMetadata,
+  type AppliedCaptureParameters,
   type AstroPhotoMetadata,
 } from '../model/assisted-capture.ts';
 
@@ -30,16 +31,32 @@ export interface CameraCaptureHandle {
   capture(): Promise<CapturedPhoto>;
 }
 
+export interface CameraZoomRange {
+  minZoom: number;
+  maxZoom: number;
+}
+
 interface CameraCaptureViewProps {
   active: boolean;
+  assistedCaptureEnabled: boolean;
+  zoom: number;
   onCapabilitiesChange?(capabilities: CameraCapabilities | null): void;
   onError(message: string): void;
   onPreviewReady(): void;
+  onZoomRangeChange?(range: CameraZoomRange | null): void;
 }
 
 export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureViewProps>(
   function CameraCaptureView(
-    { active, onCapabilitiesChange, onError, onPreviewReady },
+    {
+      active,
+      assistedCaptureEnabled,
+      zoom,
+      onCapabilitiesChange,
+      onError,
+      onPreviewReady,
+      onZoomRangeChange,
+    },
     forwardedRef,
   ) {
     const cameraRef = useRef<CameraRef>(null);
@@ -48,6 +65,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
     const [previewReady, setPreviewReady] = useState(false);
     const onCapabilitiesChangeRef = useRef(onCapabilitiesChange);
     const onErrorRef = useRef(onError);
+    const onZoomRangeChangeRef = useRef(onZoomRangeChange);
 
     useEffect(() => {
       onCapabilitiesChangeRef.current = onCapabilitiesChange;
@@ -56,6 +74,10 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
     useEffect(() => {
       onErrorRef.current = onError;
     }, [onError]);
+
+    useEffect(() => {
+      onZoomRangeChangeRef.current = onZoomRangeChange;
+    }, [onZoomRangeChange]);
 
     useEffect(() => {
       if (device) return;
@@ -70,11 +92,13 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
     useEffect(() => {
       if (!device) {
         onCapabilitiesChangeRef.current?.(null);
+        onZoomRangeChangeRef.current?.(null);
         return;
       }
 
       const controller = previewReady ? cameraRef.current?.controller : undefined;
       onCapabilitiesChangeRef.current?.(detectCameraCapabilities(device, controller));
+      onZoomRangeChangeRef.current?.({ minZoom: device.minZoom, maxZoom: device.maxZoom });
     }, [device, previewReady]);
 
     useImperativeHandle(
@@ -89,21 +113,29 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
           try {
             const controller = cameraRef.current.controller;
             const capabilities = detectCameraCapabilities(device, controller);
-            const plan = createAssistedCapturePlan(capabilities);
-            const parameters = await applyAssistedCapturePlan(plan, {
-              meterCenter: async (modes) => {
-                const point = VisionCamera.createNormalizedMeteringPoint(0.5, 0.5);
-                await controller.focusTo(point, {
-                  modes,
-                  responsiveness: 'snappy',
-                  adaptiveness: 'continuous',
-                  autoResetAfter: 5,
-                });
-              },
-              setExposureBias: (value) => controller.setExposureBias(value),
-              setManualExposure: (exposureTimeSeconds, iso) =>
-                controller.setExposureLocked(exposureTimeSeconds, iso),
-            });
+            const parameters: AppliedCaptureParameters = assistedCaptureEnabled
+              ? await applyAssistedCapturePlan(createAssistedCapturePlan(capabilities), {
+                  meterCenter: async (modes) => {
+                    const point = VisionCamera.createNormalizedMeteringPoint(0.5, 0.5);
+                    await controller.focusTo(point, {
+                      modes,
+                      responsiveness: 'snappy',
+                      adaptiveness: 'continuous',
+                      autoResetAfter: 5,
+                    });
+                  },
+                  setExposureBias: (value) => controller.setExposureBias(value),
+                  setManualExposure: (exposureTimeSeconds, iso) =>
+                    controller.setExposureLocked(exposureTimeSeconds, iso),
+                })
+              : {
+                  focusMode: 'automatic',
+                  exposureMode: 'automatic',
+                  exposureCompensationEv: 0,
+                  iso: 'automatic',
+                  exposureTimeSeconds: 'automatic',
+                  fallbacks: [],
+                };
             const { filePath } = await photoOutput.capturePhotoToFile(
               { enableShutterSound: true, flashMode: 'off' },
               {},
@@ -117,7 +149,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
           }
         },
       }),
-      [device, photoOutput, previewReady],
+      [assistedCaptureEnabled, device, photoOutput, previewReady],
     );
 
     if (!device) return <View style={[StyleSheet.absoluteFill, styles.unavailable]} />;
@@ -137,6 +169,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
         outputs={[photoOutput]}
         resizeMode="cover"
         style={StyleSheet.absoluteFill}
+        zoom={zoom}
       />
     );
   },

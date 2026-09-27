@@ -131,7 +131,9 @@ export function AppRoot() {
               onOpenHistory={() => setAuthenticatedPage('history')}
             />
           )}
-          <BottomNavigation activePage={authenticatedPage} onNavigate={setAuthenticatedPage} />
+          {authenticatedPage === 'camera' ? null : (
+            <BottomNavigation activePage={authenticatedPage} onNavigate={setAuthenticatedPage} />
+          )}
         </View>
       ) : (
         <AuthPage
