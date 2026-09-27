@@ -1,9 +1,27 @@
+import { Lucide } from '@react-native-vector-icons/lucide';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type SignUpResult } from '../../../shared/api/index.ts';
+import { theme } from '../../../shared/config/index.ts';
 import { Button, TextField } from '../../../shared/ui/index.ts';
+
+const backgroundImage = require('../../../../assets/loading-background.jpeg') as number;
+const logoImage = require('../../../../assets/logo.png') as number;
+const googleLogoImage = require('../../../../assets/google-logo.png') as number;
+const LOGO_WIDTH = 176;
+const LOGO_ASPECT_RATIO = 1600 / 533;
 
 type Mode = 'sign-in' | 'sign-up' | 'recovery' | 'reset';
 
@@ -30,13 +48,6 @@ function friendlyMessage(error: unknown): string {
   }
   return 'Não foi possível conectar à API. Tente novamente.';
 }
-
-const titles: Record<Mode, string> = {
-  'sign-in': 'Entrar',
-  'sign-up': 'Criar conta',
-  recovery: 'Recuperar senha',
-  reset: 'Definir nova senha',
-};
 
 const actions: Record<Mode, string> = {
   'sign-in': 'Entrar',
@@ -65,12 +76,14 @@ export function AuthPage({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const emailIsValid = /^\S+@\S+\.\S+$/.test(email.trim());
   const passwordIsValid = mode === 'sign-in' ? password.length > 0 : password.length >= 8;
   const canSubmit = (mode === 'reset' || emailIsValid) && (mode === 'recovery' || passwordIsValid);
+  const showSocialOptions = mode === 'sign-in' || mode === 'sign-up';
 
   const changeMode = (nextMode: Mode) => {
     setMode(nextMode);
@@ -120,117 +133,168 @@ export function AuthPage({
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
-        <ScrollView
-          contentContainerClassName="flex-grow justify-center px-6 py-10"
-          keyboardShouldPersistTaps="handled"
+    <ImageBackground className="flex-1 bg-canvas" resizeMode="cover" source={backgroundImage}>
+      <SafeAreaView className="flex-1 bg-canvas/40">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          className="flex-1"
         >
-          <View className="mx-auto w-full max-w-md gap-5">
-            <View className="items-center gap-2 pb-3">
-              <Text className="font-label text-[11px] uppercase tracking-[2px] text-accent">
-                VeronicaLens
-              </Text>
+          <ScrollView contentContainerClassName="flex-grow" keyboardShouldPersistTaps="handled">
+            <View className="items-center gap-2 px-6 pb-8 pt-10">
+              <Image
+                resizeMode="contain"
+                source={logoImage}
+                style={{ width: LOGO_WIDTH, height: LOGO_WIDTH / LOGO_ASPECT_RATIO }}
+              />
               <Text
                 accessibilityRole="header"
-                className="text-center font-display text-[32px] text-ink"
+                className="text-center font-display text-[34px] text-ink"
               >
-                {titles[mode]}
+                {mode === 'sign-up' ? (
+                  <>
+                    Criar <Text className="text-accent">conta</Text>
+                  </>
+                ) : mode === 'recovery' ? (
+                  'Recuperar senha'
+                ) : mode === 'reset' ? (
+                  'Definir nova senha'
+                ) : (
+                  'Entrar'
+                )}
               </Text>
               <Text className="max-w-xs text-center font-body text-sm leading-5 text-muted">
                 {descriptions[mode]}
               </Text>
             </View>
 
-            {mode === 'sign-up' ? (
-              <TextField
-                autoCapitalize="words"
-                autoComplete="name"
-                label="Nome"
-                onChangeText={setDisplayName}
-                placeholder="Como você quer ser chamada?"
-                value={displayName}
-              />
-            ) : null}
+            <View className="flex-1 gap-5 rounded-t-panel bg-canvas/90 px-6 pb-10 pt-8">
+              {mode === 'sign-up' ? (
+                <TextField
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  icon="user"
+                  label="Nome"
+                  onChangeText={setDisplayName}
+                  placeholder="Como você quer ser chamada?"
+                  value={displayName}
+                />
+              ) : null}
 
-            {mode !== 'reset' ? (
-              <TextField
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                label="E-mail"
-                onChangeText={setEmail}
-                placeholder="voce@exemplo.com"
-                value={email}
-              />
-            ) : null}
+              {mode !== 'reset' ? (
+                <TextField
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  icon="mail"
+                  keyboardType="email-address"
+                  label="E-mail"
+                  onChangeText={setEmail}
+                  placeholder="voce@exemplo.com"
+                  value={email}
+                />
+              ) : null}
 
-            {mode !== 'recovery' ? (
-              <TextField
-                autoCapitalize="none"
-                autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
-                label={mode === 'reset' ? 'Nova senha' : 'Senha'}
-                onChangeText={setPassword}
-                placeholder={mode === 'reset' ? 'Mínimo de 8 caracteres' : 'Sua senha'}
-                secureTextEntry
-                value={password}
-              />
-            ) : null}
+              {mode !== 'recovery' ? (
+                <TextField
+                  autoCapitalize="none"
+                  autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
+                  icon="lock"
+                  label={mode === 'reset' ? 'Nova senha' : 'Senha'}
+                  onChangeText={setPassword}
+                  placeholder={mode === 'reset' ? 'Mínimo de 8 caracteres' : 'Sua senha'}
+                  secureTextEntry={!passwordVisible}
+                  trailing={
+                    <Pressable
+                      accessibilityLabel={passwordVisible ? 'Ocultar senha' : 'Mostrar senha'}
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      onPress={() => setPasswordVisible((visible) => !visible)}
+                    >
+                      <Lucide
+                        color={theme.colors.muted}
+                        name={passwordVisible ? 'eye-off' : 'eye'}
+                        size={18}
+                      />
+                    </Pressable>
+                  }
+                  value={password}
+                />
+              ) : null}
 
-            {message ? (
-              <Text
-                accessibilityLiveRegion="polite"
-                className="text-center font-body text-sm leading-5 text-muted"
-              >
-                {message}
-              </Text>
-            ) : null}
-
-            <Button
-              busy={busy}
-              disabled={!canSubmit}
-              label={actions[mode]}
-              onPress={() => void submit()}
-            />
-
-            {mode === 'sign-in' ? (
-              <Button
-                busy={googleBusy}
-                disabled={busy}
-                label="Continuar com Google"
-                onPress={() => void submitGoogle()}
-                variant="secondary"
-              />
-            ) : null}
-
-            {mode === 'sign-in' ? (
-              <View className="items-center gap-4 pt-1">
-                <Pressable onPress={() => changeMode('sign-up')}>
-                  <Text className="text-center font-label text-xs text-accent">
-                    Criar uma conta
-                  </Text>
+              {mode === 'sign-in' ? (
+                <Pressable className="self-end" onPress={() => changeMode('recovery')}>
+                  <Text className="font-label text-xs text-accent">Esqueci minha senha?</Text>
                 </Pressable>
-                <Pressable onPress={() => changeMode('recovery')}>
-                  <Text className="text-center font-label text-xs text-accent">
-                    Esqueci minha senha
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
+              ) : null}
 
-            {mode === 'sign-up' || mode === 'recovery' ? (
-              <Pressable onPress={() => changeMode('sign-in')}>
-                <Text className="text-center font-label text-xs text-accent">
-                  Voltar para o login
+              {message ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  className="text-center font-body text-sm leading-5 text-muted"
+                >
+                  {message}
                 </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+              ) : null}
+
+              <Button
+                busy={busy}
+                disabled={!canSubmit}
+                label={actions[mode]}
+                onPress={() => void submit()}
+              />
+
+              {showSocialOptions ? (
+                <>
+                  <View className="flex-row items-center gap-3">
+                    <View className="h-px flex-1 bg-border" />
+                    <Text className="font-body text-xs text-muted">ou continue com</Text>
+                    <View className="h-px flex-1 bg-border" />
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ busy: googleBusy, disabled: busy || googleBusy }}
+                    className={`h-11 min-h-11 flex-row items-center justify-center gap-2 rounded-pill border border-border bg-surface-2 px-5 active:opacity-80 ${
+                      busy || googleBusy ? 'opacity-60' : ''
+                    }`}
+                    disabled={busy || googleBusy}
+                    onPress={() => void submitGoogle()}
+                  >
+                    {googleBusy ? (
+                      <ActivityIndicator color={theme.colors.accent} />
+                    ) : (
+                      <>
+                        <Image
+                          resizeMode="contain"
+                          source={googleLogoImage}
+                          style={{ width: 18, height: 18 }}
+                        />
+                        <Text className="font-label text-xs text-ink">Continuar com Google</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </>
+              ) : null}
+
+              {mode === 'sign-in' ? (
+                <Pressable className="items-center pt-1" onPress={() => changeMode('sign-up')}>
+                  <Text className="text-center font-body text-sm text-muted">
+                    Não tem uma conta?{' '}
+                    <Text className="font-label text-sm text-accent">Criar conta</Text>
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {mode === 'sign-up' || mode === 'recovery' ? (
+                <Pressable className="items-center pt-1" onPress={() => changeMode('sign-in')}>
+                  <Text className="text-center font-body text-sm text-muted">
+                    Já tem uma conta? <Text className="font-label text-sm text-accent">Entrar</Text>
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
