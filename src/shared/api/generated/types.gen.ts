@@ -280,6 +280,23 @@ export type ObservationRecommendationResponse = {
     data: ObservationRecommendation;
 };
 
+export type ObservationRating = 'good' | 'fair' | 'poor';
+
+export type CurrentConditions = {
+    observedAt: string;
+    temperatureCelsius: number;
+    cloudCoverPercent: number;
+    precipitationProbabilityPercent: number;
+    visibilityMeters: number;
+    rating: ObservationRating;
+    skyLabel: string;
+    visibilityLabel: string;
+};
+
+export type CurrentConditionsResponse = {
+    data: CurrentConditions;
+};
+
 export type UpcomingAstronomicalEventType = 'rise' | 'transit' | 'set';
 
 export type UpcomingAstronomicalEvent = {
@@ -1047,3 +1064,40 @@ export type GetUpcomingEventsResponses = {
 };
 
 export type GetUpcomingEventsResponse = GetUpcomingEventsResponses[keyof GetUpcomingEventsResponses];
+
+export type GetCurrentConditionsData = {
+    body?: never;
+    path?: never;
+    query: {
+        latitudeDegrees: number;
+        longitudeDegrees: number;
+        elevationMeters?: number;
+    };
+    url: '/conditions/current';
+};
+
+export type GetCurrentConditionsErrors = {
+    /**
+     * Invalid observer coordinates.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Weather provider unavailable.
+     */
+    503: ErrorResponse;
+};
+
+export type GetCurrentConditionsError = GetCurrentConditionsErrors[keyof GetCurrentConditionsErrors];
+
+export type GetCurrentConditionsResponses = {
+    /**
+     * Current sky, weather and visibility conditions for the observer.
+     */
+    200: CurrentConditionsResponse;
+};
+
+export type GetCurrentConditionsResponse = GetCurrentConditionsResponses[keyof GetCurrentConditionsResponses];

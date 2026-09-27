@@ -10,14 +10,27 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUpcomingEvents } from '../../../features/astronomical-events/index.ts';
+import { useCurrentConditions } from '../../../features/current-conditions/index.ts';
 import { useDeviceLocation } from '../../../features/device-location/index.ts';
-import type { UpcomingAstronomicalEvent } from '../../../shared/api/index.ts';
+import type { ObservationRating, UpcomingAstronomicalEvent } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 
 const backgroundImage = require('../../../../assets/loading-background.jpeg') as number;
 
 const EVENT_PREVIEW_PERIOD_DAYS = 14;
 const EVENT_PREVIEW_COUNT = 3;
+
+const ratingConfig: Record<ObservationRating, { label: string; color: string }> = {
+  good: { label: 'Boas condições', color: theme.colors.info },
+  fair: { label: 'Condições regulares', color: theme.colors.event },
+  poor: { label: 'Condições desfavoráveis', color: theme.colors.muted },
+};
+
+function nebulosityLabel(cloudCoverPercent: number): string {
+  if (cloudCoverPercent <= 20) return 'Baixa nebulosidade';
+  if (cloudCoverPercent <= 60) return 'Nebulosidade moderada';
+  return 'Alta nebulosidade';
+}
 
 const eventTypeConfig: Record<
   UpcomingAstronomicalEvent['type'],
@@ -49,6 +62,7 @@ export function HomePage({
 }: HomePageProps) {
   const location = useDeviceLocation();
   const events = useUpcomingEvents(accessToken, location.location, EVENT_PREVIEW_PERIOD_DAYS);
+  const conditions = useCurrentConditions(accessToken, location.location);
   const upcomingEvents = events.events.slice(0, EVENT_PREVIEW_COUNT);
 
   return (
@@ -76,6 +90,70 @@ export function HomePage({
         </ImageBackground>
 
         <View className="gap-8 px-6 pt-8">
+          {conditions.conditions || conditions.loading || conditions.error ? (
+            <View className="gap-4 rounded-card border border-border bg-surface p-5">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-2">
+                  <Lucide color={theme.colors.accent} name="sparkles" size={16} />
+                  <Text className="font-label text-[11px] uppercase tracking-[2px] text-accent">
+                    Condições de observação
+                  </Text>
+                </View>
+                <Lucide color={theme.colors.muted} name="chevron-right" size={18} />
+              </View>
+
+              {conditions.conditions ? (
+                <>
+                  <View className="flex-row items-center gap-2">
+                    <View
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: ratingConfig[conditions.conditions.rating].color }}
+                    />
+                    <Text className="font-label text-base text-ink">
+                      {ratingConfig[conditions.conditions.rating].label}
+                    </Text>
+                  </View>
+                  <View className="flex-row">
+                    <ConditionStat
+                      icon="thermometer"
+                      label="Temperatura"
+                      value={`${Math.round(conditions.conditions.temperatureCelsius)}°`}
+                    />
+                    <ConditionStat icon="moon" label={conditions.conditions.skyLabel} value="" />
+                    <ConditionStat
+                      icon="cloud"
+                      label={nebulosityLabel(conditions.conditions.cloudCoverPercent)}
+                      value=""
+                    />
+                    <ConditionStat
+                      icon="eye"
+                      label={conditions.conditions.visibilityLabel}
+                      value=""
+                    />
+                  </View>
+                </>
+              ) : conditions.loading ? (
+                <View className="flex-row items-center gap-3">
+                  <ActivityIndicator color={theme.colors.primary} />
+                  <Text className="flex-1 font-body text-sm leading-5 text-muted">
+                    Calculando condições de observação...
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  className="flex-row items-center gap-3"
+                  onPress={conditions.refresh}
+                >
+                  <Lucide color={theme.colors.event} name="cloud-off" size={18} />
+                  <Text className="flex-1 font-body text-sm leading-5 text-muted">
+                    {conditions.error}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          ) : null}
+
           <View className="gap-3">
             <View className="flex-row items-center justify-between">
               <Text className="font-label text-[11px] uppercase tracking-[2px] text-accent">
@@ -170,6 +248,26 @@ export function HomePage({
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ConditionStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: LucideIconName;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View className="flex-1 items-center gap-1.5">
+      <Lucide color={theme.colors.info} name={icon} size={18} />
+      {value ? <Text className="font-display text-base text-ink">{value}</Text> : null}
+      <Text className="text-center font-body text-[10px] leading-3 text-muted" numberOfLines={2}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
