@@ -17,7 +17,7 @@ const items: NavigationItem[] = [
   { page: 'home', label: 'Início', icon: 'house', enabled: true },
   { page: 'history', label: 'Histórico', icon: 'clock-3', enabled: true },
   { page: 'camera', label: 'Câmera', icon: 'camera', enabled: true },
-  { page: 'learn', label: 'Aprender', icon: 'book-open', enabled: false },
+  { page: 'learn', label: 'Aprender', icon: 'book-open', enabled: true },
   { page: 'profile', label: 'Perfil', icon: 'user-round', enabled: true },
 ];
 

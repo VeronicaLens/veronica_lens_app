@@ -303,6 +303,53 @@ export type CurrentConditionsResponse = {
     data: CurrentConditions;
 };
 
+export type LearningTrack = {
+    id: string;
+    slug: string;
+    title: string;
+    description: string;
+    sortOrder: number;
+};
+
+export type LearningTracksResponse = {
+    data: Array<LearningTrack>;
+};
+
+export type Lesson = {
+    id: string;
+    trackId: string;
+    slug: string;
+    title: string;
+    content: string;
+    sortOrder: number;
+};
+
+export type LessonsResponse = {
+    data: Array<Lesson>;
+};
+
+export type LearningProgressStatus = 'not_started' | 'in_progress' | 'completed';
+
+export type LessonProgress = {
+    lessonId: string;
+    status: LearningProgressStatus;
+    progressPercent: number;
+    completedAt: string | null;
+};
+
+export type LessonProgressResponse = {
+    data: LessonProgress;
+};
+
+export type LessonProgressListResponse = {
+    data: Array<LessonProgress>;
+};
+
+export type UpsertLessonProgressRequest = {
+    status: LearningProgressStatus;
+    progressPercent: number;
+};
+
 export type UpcomingAstronomicalEventType = 'rise' | 'transit' | 'set';
 
 export type UpcomingAstronomicalEvent = {
@@ -1107,3 +1154,119 @@ export type GetCurrentConditionsResponses = {
 };
 
 export type GetCurrentConditionsResponse = GetCurrentConditionsResponses[keyof GetCurrentConditionsResponses];
+
+export type ListLearningTracksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/learning/tracks';
+};
+
+export type ListLearningTracksErrors = {
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Unexpected server error.
+     */
+    503: ErrorResponse;
+};
+
+export type ListLearningTracksError = ListLearningTracksErrors[keyof ListLearningTracksErrors];
+
+export type ListLearningTracksResponses = {
+    /**
+     * Published learning tracks ordered by sort order.
+     */
+    200: LearningTracksResponse;
+};
+
+export type ListLearningTracksResponse = ListLearningTracksResponses[keyof ListLearningTracksResponses];
+
+export type ListLearningLessonsData = {
+    body?: never;
+    path: {
+        trackId: string;
+    };
+    query?: never;
+    url: '/learning/tracks/{trackId}/lessons';
+};
+
+export type ListLearningLessonsErrors = {
+    /**
+     * Track identifier is invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type ListLearningLessonsError = ListLearningLessonsErrors[keyof ListLearningLessonsErrors];
+
+export type ListLearningLessonsResponses = {
+    /**
+     * Published lessons ordered by sort order.
+     */
+    200: LessonsResponse;
+};
+
+export type ListLearningLessonsResponse = ListLearningLessonsResponses[keyof ListLearningLessonsResponses];
+
+export type ListLearningProgressData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/learning/progress';
+};
+
+export type ListLearningProgressErrors = {
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type ListLearningProgressError = ListLearningProgressErrors[keyof ListLearningProgressErrors];
+
+export type ListLearningProgressResponses = {
+    /**
+     * Progress records for the authenticated user.
+     */
+    200: LessonProgressListResponse;
+};
+
+export type ListLearningProgressResponse = ListLearningProgressResponses[keyof ListLearningProgressResponses];
+
+export type UpsertLearningProgressData = {
+    body: UpsertLessonProgressRequest;
+    path: {
+        lessonId: string;
+    };
+    query?: never;
+    url: '/learning/lessons/{lessonId}/progress';
+};
+
+export type UpsertLearningProgressErrors = {
+    /**
+     * Lesson identifier or progress payload is invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+};
+
+export type UpsertLearningProgressError = UpsertLearningProgressErrors[keyof UpsertLearningProgressErrors];
+
+export type UpsertLearningProgressResponses = {
+    /**
+     * Progress saved.
+     */
+    200: LessonProgressResponse;
+};
+
+export type UpsertLearningProgressResponse = UpsertLearningProgressResponses[keyof UpsertLearningProgressResponses];
