@@ -5,7 +5,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getRecoveryAccessToken, useAuthSession } from '../../features/auth/index.ts';
@@ -21,8 +21,8 @@ import { EventsPage } from '../../pages/events/index.ts';
 import { HomePage } from '../../pages/home/index.ts';
 import { ObservationHistoryPage } from '../../pages/observation-history/index.ts';
 import { ProfilePage } from '../../pages/profile/index.ts';
-import { theme } from '../../shared/config/index.ts';
 import { BottomNavigation, type AuthenticatedPage } from '../../widgets/bottom-navigation/index.ts';
+import { LoadingScreen } from '../../widgets/loading-screen/index.ts';
 
 export function AppRoot() {
   const auth = useAuthSession();
@@ -31,10 +31,16 @@ export function AppRoot() {
     Inter_600SemiBold,
     SpaceGrotesk_700Bold,
   });
+  const [minLoadingElapsed, setMinLoadingElapsed] = useState(false);
   const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
   const [authenticatedPage, setAuthenticatedPage] = useState<AuthenticatedPage>('home');
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [notificationEventId, setNotificationEventId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMinLoadingElapsed(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const handleUrl = (url: string | null) => {
@@ -77,14 +83,10 @@ export function AppRoot() {
 
   return (
     <SafeAreaProvider>
-      {!fontsLoaded && !fontError ? (
-        <View className="flex-1 items-center justify-center bg-canvas">
-          <ActivityIndicator color={theme.colors.primary} size="large" />
-        </View>
+      {!minLoadingElapsed || (!fontsLoaded && !fontError) ? (
+        <LoadingScreen />
       ) : auth.status === 'restoring' ? (
-        <View className="flex-1 items-center justify-center bg-canvas">
-          <ActivityIndicator color={theme.colors.primary} size="large" />
-        </View>
+        <LoadingScreen />
       ) : auth.status === 'authenticated' && auth.session ? (
         <View className="flex-1 bg-canvas">
           {authenticatedPage === 'profile' ? (
