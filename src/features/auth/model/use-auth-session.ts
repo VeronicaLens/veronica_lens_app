@@ -5,10 +5,12 @@ import {
   refreshSession,
   requestPasswordRecovery,
   signIn,
+  signInWithGoogle,
   signOut,
   signUp,
   updatePassword,
 } from '../api/auth-api.ts';
+import { getGoogleIdToken } from './google-sign-in.ts';
 import { clearSession, loadSession, saveSession } from './session-storage.ts';
 import { getSessionRefreshDelay } from './session-refresh.ts';
 
@@ -72,6 +74,14 @@ export function useAuthSession() {
     setStatus('authenticated');
   }, []);
 
+  const authenticateWithGoogle = useCallback(async () => {
+    const idToken = await getGoogleIdToken();
+    const authenticatedSession = await signInWithGoogle(idToken);
+    await saveSession(authenticatedSession);
+    setSession(authenticatedSession);
+    setStatus('authenticated');
+  }, []);
+
   const register = useCallback(
     async (email: string, password: string, displayName: string): Promise<SignUpResult> => {
       const result = await signUp({
@@ -104,6 +114,7 @@ export function useAuthSession() {
     status,
     session,
     authenticate,
+    authenticateWithGoogle,
     register,
     logout,
     requestPasswordRecovery,

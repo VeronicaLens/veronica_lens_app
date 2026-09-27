@@ -353,6 +353,11 @@ export type RefreshSessionRequest = {
     refreshToken: string;
 };
 
+export type GoogleSignInRequest = {
+    idToken: string;
+    nonce?: string;
+};
+
 export type PasswordRecoveryRequest = {
     email: string;
 };
@@ -539,6 +544,31 @@ export type SignInResponses = {
 };
 
 export type SignInResponse = SignInResponses[keyof SignInResponses];
+
+export type SignInWithGoogleData = {
+    body: GoogleSignInRequest;
+    path?: never;
+    query?: never;
+    url: '/auth/oauth/google';
+};
+
+export type SignInWithGoogleErrors = {
+    /**
+     * Invalid or expired Google ID token.
+     */
+    401: ErrorResponse;
+};
+
+export type SignInWithGoogleError = SignInWithGoogleErrors[keyof SignInWithGoogleErrors];
+
+export type SignInWithGoogleResponses = {
+    /**
+     * Authenticated session created.
+     */
+    200: SessionResponse;
+};
+
+export type SignInWithGoogleResponse = SignInWithGoogleResponses[keyof SignInWithGoogleResponses];
 
 export type RefreshSessionData = {
     body: RefreshSessionRequest;

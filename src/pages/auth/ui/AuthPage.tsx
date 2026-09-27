@@ -10,6 +10,7 @@ type Mode = 'sign-in' | 'sign-up' | 'recovery' | 'reset';
 interface AuthPageProps {
   recoveryAccessToken: string | null;
   onSignIn(email: string, password: string): Promise<void>;
+  onGoogleSignIn(): Promise<void>;
   onSignUp(email: string, password: string, displayName: string): Promise<SignUpResult>;
   onRequestRecovery(email: string): Promise<string>;
   onUpdatePassword(accessToken: string, password: string): Promise<void>;
@@ -54,6 +55,7 @@ const descriptions: Record<Mode, string> = {
 export function AuthPage({
   recoveryAccessToken,
   onSignIn,
+  onGoogleSignIn,
   onSignUp,
   onRequestRecovery,
   onUpdatePassword,
@@ -65,6 +67,7 @@ export function AuthPage({
   const [displayName, setDisplayName] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const emailIsValid = /^\S+@\S+\.\S+$/.test(email.trim());
   const passwordIsValid = mode === 'sign-in' ? password.length > 0 : password.length >= 8;
   const canSubmit = (mode === 'reset' || emailIsValid) && (mode === 'recovery' || passwordIsValid);
@@ -73,6 +76,18 @@ export function AuthPage({
     setMode(nextMode);
     setPassword('');
     setMessage(null);
+  };
+
+  const submitGoogle = async () => {
+    setGoogleBusy(true);
+    setMessage(null);
+    try {
+      await onGoogleSignIn();
+    } catch (error) {
+      setMessage(friendlyMessage(error));
+    } finally {
+      setGoogleBusy(false);
+    }
   };
 
   const submit = async () => {
@@ -180,6 +195,16 @@ export function AuthPage({
               label={actions[mode]}
               onPress={() => void submit()}
             />
+
+            {mode === 'sign-in' ? (
+              <Button
+                busy={googleBusy}
+                disabled={busy}
+                label="Continuar com Google"
+                onPress={() => void submitGoogle()}
+                variant="secondary"
+              />
+            ) : null}
 
             {mode === 'sign-in' ? (
               <View className="items-center gap-4 pt-1">

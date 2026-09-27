@@ -1,4 +1,5 @@
 import type {
+  GoogleSignInRequest,
   MessageResponse,
   PasswordRecoveryRequest,
   PasswordUpdateRequest,
@@ -29,6 +30,14 @@ export async function signIn(
   request: Request = apiRequest,
 ): Promise<Session> {
   return (await jsonRequest<SessionResponse>('/auth/sign-in', input, request)).data;
+}
+
+export async function signInWithGoogle(
+  idToken: string,
+  request: Request = apiRequest,
+): Promise<Session> {
+  const body: GoogleSignInRequest = { idToken };
+  return (await jsonRequest<SessionResponse>('/auth/oauth/google', body, request)).data;
 }
 
 export async function refreshSession(

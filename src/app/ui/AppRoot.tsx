@@ -126,6 +126,7 @@ export function AppRoot() {
       ) : (
         <AuthPage
           key={recoveryAccessToken ?? 'authentication'}
+          onGoogleSignIn={auth.authenticateWithGoogle}
           recoveryAccessToken={recoveryAccessToken}
           onRequestRecovery={auth.requestPasswordRecovery}
           onResetComplete={() => setRecoveryAccessToken(null)}
