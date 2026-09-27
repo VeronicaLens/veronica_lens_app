@@ -48,6 +48,12 @@
         {
           "motionPermission": "Permita que o VeronicaLens use o movimento do aparelho para alinhar o guia celeste ao céu."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita que o VeronicaLens acesse suas fotos para definir a foto de perfil."
+        }
       ]
     ],
     "extra": {

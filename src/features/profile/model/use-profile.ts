@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { Profile, UpdateProfileRequest } from '../../../shared/api/index.ts';
 import { getProfile, updateProfile } from '../api/profile-api.ts';
+import { uploadProfileAvatar } from '../api/profile-avatar-api.ts';
 
 export function useProfile(accessToken: string) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -45,5 +46,23 @@ export function useProfile(accessToken: string) {
     [accessToken],
   );
 
-  return { profile, loading, saving, error, load, save };
+  const saveAvatar = useCallback(
+    async (uri: string, contentType: 'image/jpeg' | 'image/png' | 'image/webp') => {
+      setSaving(true);
+      setError(null);
+      try {
+        const updated = await uploadProfileAvatar(accessToken, uri, contentType);
+        setProfile(updated);
+        return updated;
+      } catch {
+        setError('Não foi possível salvar sua foto de perfil.');
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [accessToken],
+  );
+
+  return { profile, loading, saving, error, load, save, saveAvatar };
 }

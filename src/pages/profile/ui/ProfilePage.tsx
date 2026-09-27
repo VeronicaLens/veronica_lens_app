@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
+  Image,
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
@@ -108,6 +110,37 @@ function StatCard({
   );
 }
 
+function Avatar({
+  avatarUrl,
+  initial,
+  size,
+}: {
+  avatarUrl: string | null;
+  initial: string;
+  size: number;
+}) {
+  if (avatarUrl) {
+    return (
+      <Image
+        accessibilityLabel="Foto de perfil"
+        className="rounded-full bg-elevated"
+        source={{ uri: avatarUrl }}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <View
+      className="items-center justify-center rounded-full bg-elevated"
+      style={{ width: size, height: size }}
+    >
+      <Text className="font-display text-accent" style={{ fontSize: size * 0.4 }}>
+        {initial}
+      </Text>
+    </View>
+  );
+}
+
 function MenuRow({ icon, label }: { icon: LucideIconName; label: string }) {
   return (
     <View
@@ -129,11 +162,12 @@ export function ProfilePage({
   onOpenHistory,
   onSaved,
 }: ProfilePageProps) {
-  const { profile, loading, saving, error, load, save } = useProfile(accessToken);
+  const { profile, loading, saving, error, load, save, saveAvatar } = useProfile(accessToken);
   const eventPreferences = useEventPreferences(accessToken);
   const history = useObservationHistory(accessToken);
   const [editing, setEditing] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [locationName, setLocationName] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -213,6 +247,36 @@ export function ProfilePage({
   };
 
   const initial = (profile?.displayName?.trim()[0] ?? email.trim()[0] ?? 'V').toUpperCase();
+
+  const pickAvatar = async () => {
+    if (uploadingAvatar) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setPhotoMessage('Permita o acesso às fotos para trocar sua foto de perfil.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const contentType = asset.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+    setUploadingAvatar(true);
+    setPhotoMessage(null);
+    try {
+      const updated = await saveAvatar(asset.uri, contentType);
+      if (updated) {
+        onSaved(updated);
+      } else {
+        setPhotoMessage('Não foi possível salvar sua foto de perfil.');
+      }
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
   const stats = useMemo(() => {
     const moonCount = history.observations.filter(
       (observation) => categorizeObservation(observation) === 'moon',
@@ -279,14 +343,21 @@ export function ProfilePage({
               <View className="gap-5">
                 <View className="gap-4 rounded-card bg-surface p-5">
                   <View className="items-center pb-2">
-                    <View className="h-20 w-20 items-center justify-center rounded-full bg-elevated">
-                      <Text className="font-display text-3xl text-accent">{initial}</Text>
+                    <View>
+                      <Avatar avatarUrl={profile.avatarUrl} initial={initial} size={80} />
+                      {uploadingAvatar ? (
+                        <View className="absolute inset-0 items-center justify-center rounded-full bg-canvas/60">
+                          <ActivityIndicator color={theme.colors.text} />
+                        </View>
+                      ) : null}
                     </View>
                     <Pressable
                       accessibilityLabel="Alterar foto de perfil"
                       accessibilityRole="button"
+                      accessibilityState={{ disabled: uploadingAvatar }}
                       className="absolute bottom-0 right-[calc(50%-40px)] h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-2 active:opacity-80"
-                      onPress={() => setPhotoMessage('Upload de foto em breve.')}
+                      disabled={uploadingAvatar}
+                      onPress={() => void pickAvatar()}
                     >
                       <Lucide color={theme.colors.muted} name="camera" size={14} />
                     </Pressable>
@@ -352,9 +423,7 @@ export function ProfilePage({
             ) : (
               <>
                 <View className="flex-row items-center gap-4">
-                  <View className="h-14 w-14 items-center justify-center rounded-full bg-elevated">
-                    <Text className="font-display text-xl text-accent">{initial}</Text>
-                  </View>
+                  <Avatar avatarUrl={profile.avatarUrl} initial={initial} size={56} />
                   <View className="flex-1 gap-1">
                     <Text className="font-label text-base text-ink">
                       {profile.displayName ?? 'Exploradora do céu'}
