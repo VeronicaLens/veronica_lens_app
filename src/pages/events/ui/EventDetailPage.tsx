@@ -8,6 +8,7 @@ import type {
   ObservationRecommendation,
   UpcomingAstronomicalEvent,
   UpcomingEventsMeta,
+  VisibilityFactor,
 } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 
@@ -33,6 +34,8 @@ export function EventDetailPage({
     event.startsAt,
   );
   const config = eventTypeConfig(event.type);
+  const recommendation = planning.recommendation;
+  const window = recommendation?.status === 'recommended' ? recommendation.recommendedWindow : null;
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
@@ -47,8 +50,11 @@ export function EventDetailPage({
         </Pressable>
 
         <View className="gap-3">
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-surface-2">
-            <Lucide color={config.color} name={config.icon} size={26} />
+          <View
+            className="h-16 w-16 items-center justify-center rounded-full border-2 bg-surface-2"
+            style={{ borderColor: config.color }}
+          >
+            <Lucide color={config.color} name={config.icon} size={28} />
           </View>
           <Text
             className="font-label text-[11px] uppercase tracking-[2px]"
@@ -56,12 +62,31 @@ export function EventDetailPage({
           >
             {config.label}
           </Text>
-          <Text accessibilityRole="header" className="font-display text-[28px] text-ink">
+          <Text accessibilityRole="header" className="font-display text-[30px] text-ink">
             {event.title}
           </Text>
           <Text className="font-label text-sm text-accent">{formatEventDate(event.startsAt)}</Text>
           <Text className="font-body text-sm leading-6 text-muted">{event.description}</Text>
         </View>
+
+        {window ? (
+          <View
+            className="flex-row items-center gap-4 rounded-card border p-4"
+            style={{ backgroundColor: theme.colors.elevated, borderColor: theme.colors.primary }}
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-2">
+              <Lucide color={theme.colors.accent} name="clock" size={20} />
+            </View>
+            <View className="flex-1 gap-1">
+              <Text className="font-label text-[10px] uppercase tracking-[2px] text-accent">
+                Janela favorável
+              </Text>
+              <Text className="font-display text-xl text-ink">
+                {formatTime(window.from)} – {formatTime(window.to)}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         <DetailCard icon="eye" title="Visibilidade">
           {!location ? (
@@ -80,8 +105,8 @@ export function EventDetailPage({
                 <Text className="font-label text-xs text-accent">Tentar novamente</Text>
               </Pressable>
             </View>
-          ) : planning.recommendation ? (
-            <VisibilityDetails recommendation={planning.recommendation} />
+          ) : recommendation ? (
+            <VisibilityDetails recommendation={recommendation} />
           ) : (
             <Text className="font-body text-xs leading-5 text-muted">
               Nenhum dado complementar de visibilidade disponível.
@@ -117,8 +142,16 @@ export function EventDetailPage({
 
 function VisibilityDetails({ recommendation }: { recommendation: ObservationRecommendation }) {
   const window = recommendation.recommendedWindow;
+  const altitude = findFactor(recommendation.factors, 'altitude');
+  const weather = findFactor(recommendation.factors, 'weather');
+  const altitudeValue = altitude?.metrics?.altitudeDegrees ?? null;
+  const minimumValue = altitude?.metrics?.minimumAltitudeDegrees ?? null;
+  const cloudValue = weather?.metrics?.cloudCoverPercent ?? null;
+  const precipitationValue = weather?.metrics?.precipitationProbabilityPercent ?? null;
+  const visibilityValue = weather?.metrics?.visibilityMeters ?? null;
+
   return (
-    <View className="gap-2">
+    <View className="gap-3">
       <Text className="font-label text-xs text-ink">
         {recommendation.status === 'recommended' && window
           ? `Janela favorável: ${formatTime(window.from)}–${formatTime(window.to)}`
@@ -126,12 +159,93 @@ function VisibilityDetails({ recommendation }: { recommendation: ObservationReco
             ? 'Dados insuficientes'
             : 'Sem janela favorável'}
       </Text>
-      <Text className="font-body text-xs leading-5 text-muted">{recommendation.summary}</Text>
+
+      {altitudeValue !== null || cloudValue !== null ? (
+        <View className="overflow-hidden rounded-control bg-surface-2">
+          {altitudeValue !== null ? (
+            <StatRow
+              left={{ icon: 'triangle', label: 'Altitude', value: `${altitudeValue}°` }}
+              right={
+                minimumValue !== null
+                  ? { icon: 'settings', label: 'Mínimo configurado', value: `${minimumValue}°` }
+                  : undefined
+              }
+            />
+          ) : null}
+          {altitudeValue !== null && cloudValue !== null ? (
+            <View className="h-px bg-border" />
+          ) : null}
+          {cloudValue !== null ? (
+            <StatRow
+              left={{ icon: 'cloud', label: 'Nuvens', value: `${cloudValue}%` }}
+              right={
+                precipitationValue !== null
+                  ? {
+                      icon: 'cloud-rain',
+                      label: 'Probabilidade de precipitação',
+                      value: `${precipitationValue}%`,
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
+          {visibilityValue !== null ? (
+            <>
+              <View className="h-px bg-border" />
+              <StatRow
+                left={{ icon: 'eye', label: 'Visibilidade', value: `${visibilityValue} m` }}
+              />
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
       {!recommendation.meta.weatherAvailable ? (
         <Text className="font-body text-[11px] text-event">Previsão climática indisponível.</Text>
       ) : null}
     </View>
   );
+}
+
+interface StatItem {
+  icon: LucideIconName;
+  label: string;
+  value: string;
+}
+
+function StatRow({ left, right }: { left: StatItem; right?: StatItem | undefined }) {
+  return (
+    <View className="flex-row">
+      <Stat item={left} />
+      {right ? (
+        <>
+          <View className="w-px bg-border" />
+          <Stat item={right} />
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+function Stat({ item }: { item: StatItem }) {
+  return (
+    <View className="flex-1 flex-row items-center gap-2.5 px-3 py-3">
+      <Lucide color={theme.colors.accent} name={item.icon} size={17} />
+      <View className="flex-1">
+        <Text className="font-body text-[10px] leading-3 text-muted" numberOfLines={2}>
+          {item.label}
+        </Text>
+        <Text className="font-label text-sm text-ink">{item.value}</Text>
+      </View>
+    </View>
+  );
+}
+
+function findFactor(
+  factors: VisibilityFactor[],
+  code: VisibilityFactor['code'],
+): VisibilityFactor | undefined {
+  return factors.find((factor) => factor.code === code);
 }
 
 function DetailCard({

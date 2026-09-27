@@ -252,6 +252,12 @@ export type VisibilityFactor = {
     code: 'altitude' | 'moon' | 'weather';
     status: 'favorable' | 'unfavorable' | 'unavailable';
     summary: string;
+    /**
+     * Structured numeric metrics backing the summary, keyed by metric name.
+     */
+    metrics?: {
+        [key: string]: number;
+    };
 };
 
 export type RecommendedObservationWindow = {
