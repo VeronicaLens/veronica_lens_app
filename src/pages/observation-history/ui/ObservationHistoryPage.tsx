@@ -1,11 +1,47 @@
-import { Lucide } from '@react-native-vector-icons/lucide';
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
-import { useState } from 'react';
+import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ImageBackground,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
+import { useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useObservationHistory } from '../../../features/observation-history/index.ts';
 import type { ObservationHistoryItem } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
+
+const backgroundImage = require('../../../../assets/loading-background.jpeg') as number;
+
+type Category = 'all' | 'moon' | 'planet' | 'other';
+
+const categoryConfig: Record<Exclude<Category, 'all'>, { icon: LucideIconName; label: string }> = {
+  moon: { icon: 'moon', label: 'Lua' },
+  planet: { icon: 'orbit', label: 'Planetas' },
+  other: { icon: 'sparkles', label: 'Céu profundo' },
+};
+
+const planetNames = [
+  'mercúrio',
+  'vênus',
+  'terra',
+  'marte',
+  'júpiter',
+  'saturno',
+  'urano',
+  'netuno',
+];
+
+function categorize(observation: ObservationHistoryItem): Exclude<Category, 'all'> {
+  const name = observation.celestialObjectName?.toLowerCase() ?? '';
+  if (name.includes('lua')) return 'moon';
+  if (planetNames.some((planet) => name.includes(planet))) return 'planet';
+  return 'other';
+}
 
 interface ObservationHistoryPageProps {
   accessToken: string;
@@ -15,8 +51,16 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
   const [selectedObservation, setSelectedObservation] = useState<ObservationHistoryItem | null>(
     null,
   );
+  const [category, setCategory] = useState<Category>('all');
   const { observations, loading, loadingMore, hasMore, error, refresh, loadMore } =
     useObservationHistory(accessToken);
+  const filteredObservations = useMemo(
+    () =>
+      category === 'all'
+        ? observations
+        : observations.filter((observation) => categorize(observation) === category),
+    [category, observations],
+  );
 
   if (selectedObservation) {
     return (
@@ -30,8 +74,8 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
   return (
     <SafeAreaView className="flex-1 bg-canvas">
       <FlatList
-        contentContainerClassName="flex-grow px-5 pb-8 pt-5"
-        data={observations}
+        contentContainerClassName="flex-grow pb-8"
+        data={filteredObservations}
         ItemSeparatorComponent={() => <View className="h-3" />}
         keyExtractor={(observation) => observation.id}
         onEndReached={() => void loadMore()}
@@ -44,7 +88,7 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
           ) : hasMore ? (
             <Pressable
               accessibilityRole="button"
-              className="mt-5 items-center rounded-pill border border-border bg-surface px-5 py-3 active:opacity-80"
+              className="mx-5 mt-5 items-center rounded-pill border border-border bg-surface px-5 py-3 active:opacity-80"
               onPress={() => void loadMore()}
             >
               <Text className="font-label text-xs text-accent">Carregar mais</Text>
@@ -53,12 +97,12 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
         }
         ListEmptyComponent={
           loading ? (
-            <View className="items-center gap-3 rounded-card bg-surface p-8">
+            <View className="mx-5 items-center gap-3 rounded-card bg-surface p-8">
               <ActivityIndicator color={theme.colors.primary} />
               <Text className="font-body text-sm text-muted">Carregando observações...</Text>
             </View>
           ) : error ? (
-            <View className="items-center gap-3 rounded-card border border-border bg-surface p-7">
+            <View className="mx-5 items-center gap-3 rounded-card border border-border bg-surface p-7">
               <Lucide color={theme.colors.event} name="cloud-off" size={28} />
               <Text className="text-center font-body text-sm leading-5 text-muted">{error}</Text>
               <Pressable
@@ -70,7 +114,7 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
               </Pressable>
             </View>
           ) : (
-            <View className="items-center gap-3 rounded-card border border-border bg-surface p-7">
+            <View className="mx-5 items-center gap-3 rounded-card border border-border bg-surface p-7">
               <Lucide color={theme.colors.accent} name="telescope" size={28} />
               <Text className="font-display text-lg text-ink">Nenhuma observação ainda</Text>
               <Text className="text-center font-body text-sm leading-5 text-muted">
@@ -80,23 +124,82 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
           )
         }
         ListHeaderComponent={
-          <View className="mb-6 gap-2">
-            <Text className="font-label text-[11px] uppercase tracking-[2px] text-accent">
-              Seu céu registrado
-            </Text>
-            <Text accessibilityRole="header" className="font-display text-[28px] text-ink">
-              Histórico
-            </Text>
-            <Text className="font-body text-sm leading-5 text-muted">
-              Observações salvas nesta conta, da mais recente para a mais antiga.
-            </Text>
+          <View className="mb-5 gap-5">
+            <ImageBackground resizeMode="cover" source={backgroundImage}>
+              <View className="gap-2 bg-canvas/40 px-5 pb-6 pt-6">
+                <Text className="font-label text-[11px] uppercase tracking-[3px] text-accent">
+                  Seu céu registrado
+                </Text>
+                <Text accessibilityRole="header" className="font-display text-[28px] text-ink">
+                  Histórico
+                </Text>
+                <Text className="font-body text-sm leading-5 text-muted">
+                  Suas observações salvas, da mais recente para a mais antiga.
+                </Text>
+              </View>
+            </ImageBackground>
+
+            <View className="flex-row flex-wrap gap-2 px-5">
+              <FilterChip
+                icon="grid-2x2"
+                label="Todos"
+                onPress={() => setCategory('all')}
+                selected={category === 'all'}
+              />
+              <FilterChip
+                icon="moon"
+                label="Lua"
+                onPress={() => setCategory('moon')}
+                selected={category === 'moon'}
+              />
+              <FilterChip
+                icon="orbit"
+                label="Planetas"
+                onPress={() => setCategory('planet')}
+                selected={category === 'planet'}
+              />
+              <FilterChip
+                icon="sparkles"
+                label="Céu profundo"
+                onPress={() => setCategory('other')}
+                selected={category === 'other'}
+              />
+            </View>
           </View>
         }
         renderItem={({ item }) => (
-          <ObservationCard observation={item} onPress={() => setSelectedObservation(item)} />
+          <View className="px-5">
+            <ObservationCard observation={item} onPress={() => setSelectedObservation(item)} />
+          </View>
         )}
       />
     </SafeAreaView>
+  );
+}
+
+function FilterChip({
+  icon,
+  label,
+  onPress,
+  selected,
+}: {
+  icon: LucideIconName;
+  label: string;
+  onPress(): void;
+  selected: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      className={`flex-row items-center gap-2 rounded-pill border px-4 py-2.5 active:opacity-80 ${
+        selected ? 'border-brand bg-brand' : 'border-border bg-surface'
+      }`}
+      onPress={onPress}
+    >
+      <Lucide color={selected ? theme.colors.text : theme.colors.muted} name={icon} size={16} />
+      <Text className="font-label text-xs text-ink">{label}</Text>
+    </Pressable>
   );
 }
 
@@ -112,38 +215,52 @@ function ObservationCard({
     observation.latitude === null || observation.longitude === null
       ? 'Localização não registrada'
       : `${observation.latitude.toFixed(4)}, ${observation.longitude.toFixed(4)}`;
+  const category = categoryConfig[categorize(observation)];
 
   return (
     <Pressable
       accessibilityLabel={`Abrir observação ${observation.title}`}
       accessibilityRole="button"
-      className="flex-row gap-3 rounded-card border border-border bg-surface p-3 active:opacity-80"
+      className="overflow-hidden rounded-card border border-border bg-surface active:opacity-90"
       onPress={onPress}
     >
-      <Thumbnail observation={observation} />
-      <View className="flex-1 gap-3 py-1">
-        <View className="flex-row items-start gap-3">
-          <View className="flex-1 gap-1">
-            <Text className="font-label text-sm text-ink">{observation.title}</Text>
-            <Text className="font-body text-xs text-muted">
-              {formatDateTime(observedAt)}
-              {observation.celestialObjectName ? ` · ${observation.celestialObjectName}` : ''}
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-1">
-            <Lucide color={theme.colors.info} name="image" size={14} />
-            <Text className="font-label text-[11px] text-info">{observation.photos.length}</Text>
-          </View>
+      <View>
+        <Thumbnail observation={observation} />
+        <View className="absolute right-3 top-3 flex-row items-center gap-1 rounded-pill bg-canvas/70 px-2.5 py-1">
+          <Lucide color={theme.colors.info} name="image" size={13} />
+          <Text className="font-label text-[11px] text-ink">{observation.photos.length}</Text>
         </View>
-        {observation.notes ? (
-          <Text className="font-body text-sm leading-5 text-muted">{observation.notes}</Text>
-        ) : null}
+      </View>
+
+      <View className="gap-3 p-4">
+        <View className="gap-1">
+          <Text className="font-label text-base text-ink">{observation.title}</Text>
+          <Text className="font-body text-xs text-muted">{formatDateTime(observedAt)}</Text>
+        </View>
+
         <View className="flex-row items-center gap-2">
-          <Lucide color={theme.colors.muted} name="map-pin" size={14} />
+          <Lucide color={theme.colors.muted} name="map-pin" size={13} />
           <Text className="flex-1 font-body text-xs text-muted">{location}</Text>
+        </View>
+
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row gap-2">
+            <Tag icon={category.icon} label={category.label} />
+            <Tag icon="camera" label="Câmera" />
+          </View>
+          <Lucide color={theme.colors.muted} name="chevron-right" size={18} />
         </View>
       </View>
     </Pressable>
+  );
+}
+
+function Tag({ icon, label }: { icon: LucideIconName; label: string }) {
+  return (
+    <View className="flex-row items-center gap-1.5 rounded-pill border border-border bg-surface-2 px-2.5 py-1">
+      <Lucide color={theme.colors.accent} name={icon} size={12} />
+      <Text className="font-label text-[11px] text-ink">{label}</Text>
+    </View>
   );
 }
 
@@ -223,13 +340,13 @@ function Thumbnail({ observation }: { observation: ObservationHistoryItem }) {
   return thumbnailUrl ? (
     <Image
       accessibilityLabel={`Miniatura de ${observation.title}`}
-      className="h-24 w-20 rounded-control bg-surface-2"
+      className="h-44 w-full bg-surface-2"
       resizeMode="cover"
       source={{ uri: thumbnailUrl }}
     />
   ) : (
-    <View className="h-24 w-20 items-center justify-center rounded-control bg-surface-2">
-      <Lucide color={theme.colors.accent} name="camera" size={20} />
+    <View className="h-44 w-full items-center justify-center bg-surface-2">
+      <Lucide color={theme.colors.accent} name="camera" size={28} />
     </View>
   );
 }
