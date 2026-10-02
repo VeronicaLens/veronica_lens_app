@@ -57,6 +57,22 @@ test('keeps controller-backed ranges pending until the preview is ready', () => 
   assert.equal(capabilities.iso.minimum, null);
 });
 
+test('does not advertise manual exposure when the platform adapter cannot apply it', () => {
+  const capabilities = detectCameraCapabilities(
+    fullyCapableDevice,
+    {
+      minISO: 32,
+      maxISO: 3200,
+      minExposureDuration: 1 / 10_000,
+      maxExposureDuration: 1,
+    },
+    false,
+  );
+
+  assert.equal(capabilities.iso.status, 'unsupported');
+  assert.equal(capabilities.exposureTime.status, 'unsupported');
+});
+
 test('defines safe automatic fallbacks when manual controls are absent', () => {
   const capabilities = detectCameraCapabilities({
     ...fullyCapableDevice,

@@ -57,6 +57,7 @@ export interface CameraCapabilityController {
 export function detectCameraCapabilities(
   device: CameraCapabilityDevice,
   controller?: CameraCapabilityController,
+  manualExposureAvailable = true,
 ): CameraCapabilities {
   const exposureCompensation = numericCapability({
     declaredSupported: device.supportsExposureBias,
@@ -64,7 +65,8 @@ export function detectCameraCapabilities(
     maximum: device.maxExposureBias,
     unit: 'ev',
   });
-  const manualExposurePending = device.supportsExposureLocking && !controller;
+  const manualExposureSupported = manualExposureAvailable && device.supportsExposureLocking;
+  const manualExposurePending = manualExposureSupported && !controller;
 
   return {
     device: { id: device.id, name: device.localizedName },
@@ -80,14 +82,14 @@ export function detectCameraCapabilities(
     },
     exposureCompensation,
     iso: manualNumericCapability(
-      device.supportsExposureLocking,
+      manualExposureSupported,
       manualExposurePending,
       controller?.minISO,
       controller?.maxISO,
       'iso',
     ),
     exposureTime: manualNumericCapability(
-      device.supportsExposureLocking,
+      manualExposureSupported,
       manualExposurePending,
       controller?.minExposureDuration,
       controller?.maxExposureDuration,

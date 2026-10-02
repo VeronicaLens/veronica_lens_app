@@ -20,6 +20,12 @@ export interface AssistedCapturePlan {
   recommendations: AssistedCaptureRecommendation[];
 }
 
+export interface AssistedCaptureSettings {
+  exposureCompensationEv?: number;
+  iso?: number;
+  exposureTimeSeconds?: number;
+}
+
 export interface AppliedCaptureParameters {
   focusMode: AssistedFocusMode;
   exposureMode: AssistedExposureMode;
@@ -44,11 +50,14 @@ export interface AssistedCaptureController {
   setManualExposure(exposureTimeSeconds: number, iso: number): Promise<void>;
 }
 
-const TARGET_EXPOSURE_COMPENSATION_EV = 0.7;
+const TARGET_EXPOSURE_COMPENSATION_EV = 1;
 const TARGET_ISO = 800;
 const TARGET_EXPOSURE_TIME_SECONDS = 1 / 8;
 
-export function createAssistedCapturePlan(capabilities: CameraCapabilities): AssistedCapturePlan {
+export function createAssistedCapturePlan(
+  capabilities: CameraCapabilities,
+  settings: AssistedCaptureSettings = {},
+): AssistedCapturePlan {
   const meteringModes: AssistedMeteringMode[] = [];
   if (capabilities.focus.meteringSupported) meteringModes.push('AF');
   if (capabilities.exposure.meteringSupported) meteringModes.push('AE');
@@ -59,11 +68,16 @@ export function createAssistedCapturePlan(capabilities: CameraCapabilities): Ass
     hasSupportedRange(capabilities.exposureTime);
   const exposureCompensationEv = supportedTarget(
     capabilities.exposureCompensation,
-    TARGET_EXPOSURE_COMPENSATION_EV,
+    finiteOrDefault(settings.exposureCompensationEv, TARGET_EXPOSURE_COMPENSATION_EV),
   );
-  const iso = manualExposureSupported ? supportedTarget(capabilities.iso, TARGET_ISO) : null;
+  const iso = manualExposureSupported
+    ? supportedTarget(capabilities.iso, finiteOrDefault(settings.iso, TARGET_ISO))
+    : null;
   const exposureTimeSeconds = manualExposureSupported
-    ? supportedTarget(capabilities.exposureTime, TARGET_EXPOSURE_TIME_SECONDS)
+    ? supportedTarget(
+        capabilities.exposureTime,
+        finiteOrDefault(settings.exposureTimeSeconds, TARGET_EXPOSURE_TIME_SECONDS),
+      )
     : null;
   const focusMode: AssistedFocusMode = capabilities.focus.meteringSupported
     ? 'center-metering'
@@ -165,7 +179,7 @@ export function describeAppliedCapture(parameters: AppliedCaptureParameters): st
     return `Astrofoto capturada com ISO ${parameters.iso} e exposição de ${formatExposureTime(parameters.exposureTimeSeconds)}.`;
   }
   if (parameters.exposureCompensationEv !== 0) {
-    return `Astrofoto capturada com exposição automática e ${formatSignedEv(parameters.exposureCompensationEv)} EV.`;
+    return `Astrofoto capturada com exposição automática e compensação nível ${formatSignedBias(parameters.exposureCompensationEv)}.`;
   }
   return 'Astrofoto capturada com os ajustes automáticos disponíveis.';
 }
@@ -173,6 +187,10 @@ export function describeAppliedCapture(parameters: AppliedCaptureParameters): st
 function supportedTarget(capability: CameraCapabilities['iso'], target: number): number {
   if (!hasSupportedRange(capability)) return 0;
   return Math.min(capability.maximum, Math.max(capability.minimum, target));
+}
+
+function finiteOrDefault(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isFinite(value) ? value : fallback;
 }
 
 function hasSupportedRange(
@@ -220,7 +238,7 @@ function buildRecommendations({
       : exposureCompensationEv !== 0
         ? {
             id: 'exposure',
-            title: `Exposição automática · ${formatSignedEv(exposureCompensationEv)} EV`,
+            title: `Exposição automática · nível ${formatSignedBias(exposureCompensationEv)}`,
             detail: 'O app aplicará apenas a compensação suportada pelo aparelho.',
           }
         : {
@@ -246,6 +264,6 @@ function formatExposureTime(value: number | 'automatic'): string {
   return `1/${Math.round(1 / value)} s`;
 }
 
-function formatSignedEv(value: number): string {
+function formatSignedBias(value: number): string {
   return `${value > 0 ? '+' : ''}${Number(value.toFixed(1))}`;
 }

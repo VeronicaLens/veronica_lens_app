@@ -45,10 +45,12 @@ rede ou Storage mantém a fila e o arquivo para nova tentativa na próxima abert
 
 ## Captura assistida
 
-A UI recebe um plano derivado exclusivamente das capacidades da câmera ativa. Antes do disparo, o
-aplicativo mostra recomendações de foco, exposição e estabilidade. No disparo ele tenta, nesta
-ordem, medição central de AF/AE, exposição manual quando realmente disponível e compensação EV.
-Cada falha de controle avançado retorna ao modo automático sem impedir a captura básica.
+A folha de ajustes mostra recomendações de foco, exposição e estabilidade derivadas das capacidades
+da câmera ativa. Os controles de compensação de exposição, ISO e tempo respeitam os intervalos
+reportados; as escolhas são aplicadas antes do disparo e qualquer falha retorna ao modo automático
+sem impedir a captura básica. ISO e tempo manual permanecem automáticos no Android até existir um adaptador
+Camera2/CameraX que consiga aplicar esses valores; esses controles só aparecem em plataformas que
+confirmem suporte efetivo.
 
 O resultado `CapturedPhoto` acompanha metadados internos com instante UTC, câmera ativa e os
 parâmetros efetivamente aplicados. ISO e tempo de exposição são registrados como `automatic`

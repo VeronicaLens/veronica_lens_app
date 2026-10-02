@@ -21,10 +21,14 @@ import {
   saveCapturedAstroPhoto,
 } from '../../../features/astrophoto-storage/index.ts';
 import {
+  AssistedCaptureSheet,
   CameraCaptureView,
   cameraFailureMessage,
+  createAssistedCapturePlan,
   describeAppliedCapture,
   useCameraAccess,
+  type AssistedCaptureSettings,
+  type CameraCapabilities,
   type CameraCaptureHandle,
 } from '../../../features/camera-capture/index.ts';
 import { useDeviceLocation } from '../../../features/device-location/index.ts';
@@ -68,6 +72,9 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const [redNightMode, setRedNightMode] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [assistedCaptureEnabled, setAssistedCaptureEnabled] = useState(true);
+  const [assistedSheetVisible, setAssistedSheetVisible] = useState(false);
+  const [cameraCapabilities, setCameraCapabilities] = useState<CameraCapabilities | null>(null);
+  const [assistedSettings, setAssistedSettings] = useState<AssistedCaptureSettings>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const insets = useSafeAreaInsets();
@@ -120,6 +127,11 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   }, [orientation.orientation, query, sky.positions, viewport]);
 
   const selectedObject = sky.positions.find((object) => object.id === selectedId) ?? null;
+  const assistedPlan = useMemo(
+    () =>
+      cameraCapabilities ? createAssistedCapturePlan(cameraCapabilities, assistedSettings) : null,
+    [assistedSettings, cameraCapabilities],
+  );
   const accent = redNightMode ? '#F34B6B' : theme.colors.accent;
   const surface = redNightMode ? '#310B14' : theme.colors.surface;
   const border = redNightMode ? '#6D1A2B' : theme.colors.border;
@@ -172,6 +184,8 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
         ref={cameraCapture}
         active
         assistedCaptureEnabled={assistedCaptureEnabled}
+        assistedSettings={assistedSettings}
+        onCapabilitiesChange={setCameraCapabilities}
         onError={handleCameraError}
         onPreviewReady={handlePreviewReady}
         zoom={1}
@@ -219,13 +233,11 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
               onPress={() => setShowHint((value) => !value)}
             />
             <CircleButton
-              accessibilityLabel={
-                assistedCaptureEnabled ? 'Desativar captura assistida' : 'Ativar captura assistida'
-              }
+              accessibilityLabel="Ajustes da fotografia assistida"
               active={assistedCaptureEnabled}
               color={accent}
               icon="sparkles"
-              onPress={() => setAssistedCaptureEnabled((value) => !value)}
+              onPress={() => setAssistedSheetVisible(true)}
             />
           </View>
         </View>
@@ -404,6 +416,18 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
           </Pressable>
         </View>
       </SafeAreaView>
+      <AssistedCaptureSheet
+        visible={assistedSheetVisible}
+        enabled={assistedCaptureEnabled}
+        capabilities={cameraCapabilities}
+        plan={assistedPlan}
+        settings={assistedSettings}
+        onClose={() => setAssistedSheetVisible(false)}
+        onEnabledChange={setAssistedCaptureEnabled}
+        onSettingsChange={(nextSettings) =>
+          setAssistedSettings((current) => ({ ...current, ...nextSettings }))
+        }
+      />
     </View>
   );
 }

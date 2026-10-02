@@ -1,3 +1,4 @@
+export { AssistedCaptureSheet } from './ui/AssistedCaptureSheet.tsx';
 export {
   CameraCaptureView,
   type CameraCaptureHandle,
@@ -13,6 +14,7 @@ export {
   type AppliedCaptureParameters,
   type AssistedCapturePlan,
   type AssistedCaptureRecommendation,
+  type AssistedCaptureSettings,
   type AssistedExposureMode,
   type AssistedFocusMode,
   type AstroPhotoMetadata,

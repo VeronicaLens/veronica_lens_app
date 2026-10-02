@@ -62,7 +62,35 @@ test('recommends only parameters supported by the active Android camera', () => 
   assert.equal(plan.exposureCompensationEv, 0.5);
   assert.equal(plan.iso, null);
   assert.equal(plan.exposureTimeSeconds, null);
-  assert.match(plan.recommendations[1]?.title ?? '', /\+0\.5 EV/);
+  assert.match(plan.recommendations[1]?.title ?? '', /nível \+0\.5/);
+});
+
+test('uses a discrete supported exposure-compensation level by default', async () => {
+  const plan = createAssistedCapturePlan(
+    capabilities({
+      exposureCompensation: {
+        status: 'supported',
+        unit: 'ev',
+        minimum: -2,
+        maximum: 2,
+        fallback: 'automatic-exposure',
+      },
+    }),
+  );
+  let appliedBias: number | null = null;
+
+  const applied = await applyAssistedCapturePlan(
+    plan,
+    controller({
+      setExposureBias: async (value) => {
+        appliedBias = value;
+      },
+    }),
+  );
+
+  assert.equal(plan.exposureCompensationEv, 1);
+  assert.equal(appliedBias, 1);
+  assert.equal(applied.exposureCompensationEv, 1);
 });
 
 test('clamps assisted manual values to hardware ranges', () => {
@@ -93,6 +121,87 @@ test('clamps assisted manual values to hardware ranges', () => {
   assert.equal(plan.exposureMode, 'manual');
   assert.equal(plan.iso, 400);
   assert.equal(plan.exposureTimeSeconds, 1 / 15);
+});
+
+test('uses user-selected values and clamps them to the active camera ranges', () => {
+  const plan = createAssistedCapturePlan(
+    capabilities({
+      exposure: {
+        meteringSupported: true,
+        lockingSupported: true,
+        fallback: 'exposure-compensation',
+      },
+      exposureCompensation: {
+        status: 'supported',
+        unit: 'ev',
+        minimum: -2,
+        maximum: 1,
+        fallback: 'automatic-exposure',
+      },
+      iso: {
+        status: 'supported',
+        unit: 'iso',
+        minimum: 100,
+        maximum: 1600,
+        fallback: 'automatic-exposure',
+      },
+      exposureTime: {
+        status: 'supported',
+        unit: 'seconds',
+        minimum: 1 / 1000,
+        maximum: 1,
+        fallback: 'automatic-exposure',
+      },
+    }),
+    { exposureCompensationEv: -1.2, iso: 6400, exposureTimeSeconds: 2 },
+  );
+
+  assert.equal(plan.exposureCompensationEv, -1.2);
+  assert.equal(plan.iso, 1600);
+  assert.equal(plan.exposureTimeSeconds, 1);
+  assert.match(plan.recommendations[1]?.title ?? '', /ISO 1600/);
+});
+
+test('applies selected manual exposure values to the camera controller', async () => {
+  const plan = createAssistedCapturePlan(
+    capabilities({
+      exposure: {
+        meteringSupported: true,
+        lockingSupported: true,
+        fallback: 'exposure-compensation',
+      },
+      iso: {
+        status: 'supported',
+        unit: 'iso',
+        minimum: 100,
+        maximum: 1600,
+        fallback: 'automatic-exposure',
+      },
+      exposureTime: {
+        status: 'supported',
+        unit: 'seconds',
+        minimum: 1 / 1000,
+        maximum: 1,
+        fallback: 'automatic-exposure',
+      },
+    }),
+    { iso: 400, exposureTimeSeconds: 1 / 4 },
+  );
+  let appliedExposure: [number, number] | null = null;
+
+  const applied = await applyAssistedCapturePlan(
+    plan,
+    controller({
+      setManualExposure: async (exposureTimeSeconds, iso) => {
+        appliedExposure = [exposureTimeSeconds, iso];
+      },
+    }),
+  );
+
+  assert.deepEqual(appliedExposure, [1 / 4, 400]);
+  assert.equal(applied.iso, 400);
+  assert.equal(applied.exposureTimeSeconds, 1 / 4);
+  assert.deepEqual(applied.fallbacks, []);
 });
 
 test('does not apply manual controls when a reported range is incomplete', () => {
@@ -179,5 +288,5 @@ test('records capture time, device and parameters in photo metadata', () => {
   assert.equal(metadata.capturedAt, '2026-09-27T23:15:00.000Z');
   assert.equal(metadata.device.id, 'back-wide');
   assert.equal(metadata.parameters.iso, 'automatic');
-  assert.match(describeAppliedCapture(metadata.parameters), /\+0\.5 EV/);
+  assert.match(describeAppliedCapture(metadata.parameters), /nível \+0\.5/);
 });

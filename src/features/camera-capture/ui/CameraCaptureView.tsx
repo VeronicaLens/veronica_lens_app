@@ -6,7 +6,7 @@ import {
   type CameraRef,
 } from 'react-native-vision-camera';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import {
   CameraCaptureFailure,
@@ -19,6 +19,7 @@ import {
   createAssistedCapturePlan,
   createAstroPhotoMetadata,
   type AppliedCaptureParameters,
+  type AssistedCaptureSettings,
   type AstroPhotoMetadata,
 } from '../model/assisted-capture.ts';
 
@@ -39,6 +40,7 @@ export interface CameraZoomRange {
 interface CameraCaptureViewProps {
   active: boolean;
   assistedCaptureEnabled: boolean;
+  assistedSettings: AssistedCaptureSettings;
   zoom: number;
   onCapabilitiesChange?(capabilities: CameraCapabilities | null): void;
   onError(message: string): void;
@@ -51,6 +53,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
     {
       active,
       assistedCaptureEnabled,
+      assistedSettings,
       zoom,
       onCapabilitiesChange,
       onError,
@@ -97,7 +100,9 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
       }
 
       const controller = previewReady ? cameraRef.current?.controller : undefined;
-      onCapabilitiesChangeRef.current?.(detectCameraCapabilities(device, controller));
+      onCapabilitiesChangeRef.current?.(
+        detectCameraCapabilities(device, controller, Platform.OS !== 'android'),
+      );
       onZoomRangeChangeRef.current?.({ minZoom: device.minZoom, maxZoom: device.maxZoom });
     }, [device, previewReady]);
 
@@ -112,22 +117,29 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
 
           try {
             const controller = cameraRef.current.controller;
-            const capabilities = detectCameraCapabilities(device, controller);
+            const capabilities = detectCameraCapabilities(
+              device,
+              controller,
+              Platform.OS !== 'android',
+            );
             const parameters: AppliedCaptureParameters = assistedCaptureEnabled
-              ? await applyAssistedCapturePlan(createAssistedCapturePlan(capabilities), {
-                  meterCenter: async (modes) => {
-                    const point = VisionCamera.createNormalizedMeteringPoint(0.5, 0.5);
-                    await controller.focusTo(point, {
-                      modes,
-                      responsiveness: 'snappy',
-                      adaptiveness: 'continuous',
-                      autoResetAfter: 5,
-                    });
+              ? await applyAssistedCapturePlan(
+                  createAssistedCapturePlan(capabilities, assistedSettings),
+                  {
+                    meterCenter: async (modes) => {
+                      const point = VisionCamera.createNormalizedMeteringPoint(0.5, 0.5);
+                      await controller.focusTo(point, {
+                        modes,
+                        responsiveness: 'snappy',
+                        adaptiveness: 'continuous',
+                        autoResetAfter: 5,
+                      });
+                    },
+                    setExposureBias: (value) => controller.setExposureBias(value),
+                    setManualExposure: (exposureTimeSeconds, iso) =>
+                      controller.setExposureLocked(exposureTimeSeconds, iso),
                   },
-                  setExposureBias: (value) => controller.setExposureBias(value),
-                  setManualExposure: (exposureTimeSeconds, iso) =>
-                    controller.setExposureLocked(exposureTimeSeconds, iso),
-                })
+                )
               : {
                   focusMode: 'automatic',
                   exposureMode: 'automatic',
@@ -149,7 +161,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
           }
         },
       }),
-      [assistedCaptureEnabled, device, photoOutput, previewReady],
+      [assistedCaptureEnabled, assistedSettings, device, photoOutput, previewReady],
     );
 
     if (!device) return <View style={[StyleSheet.absoluteFill, styles.unavailable]} />;

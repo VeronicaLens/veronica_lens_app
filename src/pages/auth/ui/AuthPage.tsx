@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type SignUpResult } from '../../../shared/api/index.ts';
+import { GoogleSignInCancelledError } from '../../../features/auth/model/google-sign-in.ts';
 import { theme } from '../../../shared/config/index.ts';
 import { Button, TextField } from '../../../shared/ui/index.ts';
 
@@ -45,6 +46,12 @@ function friendlyMessage(error: unknown): string {
       VALIDATION_ERROR: 'Revise os dados informados.',
     };
     return messages[error.code] ?? 'Não foi possível concluir a solicitação.';
+  }
+  if (error instanceof TypeError) {
+    return 'Não foi possível conectar à API. Tente novamente.';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
   return 'Não foi possível conectar à API. Tente novamente.';
 }
@@ -97,6 +104,8 @@ export function AuthPage({
     try {
       await onGoogleSignIn();
     } catch (error) {
+      if (error instanceof GoogleSignInCancelledError) return;
+      console.error('Google sign-in failed', error);
       setMessage(friendlyMessage(error));
     } finally {
       setGoogleBusy(false);
