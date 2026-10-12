@@ -100,9 +100,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
       }
 
       const controller = previewReady ? cameraRef.current?.controller : undefined;
-      onCapabilitiesChangeRef.current?.(
-        detectCameraCapabilities(device, controller, Platform.OS !== 'android'),
-      );
+      onCapabilitiesChangeRef.current?.(detectCameraCapabilities(device, controller));
       onZoomRangeChangeRef.current?.({ minZoom: device.minZoom, maxZoom: device.maxZoom });
     }, [device, previewReady]);
 
@@ -117,11 +115,7 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
 
           try {
             const controller = cameraRef.current.controller;
-            const capabilities = detectCameraCapabilities(
-              device,
-              controller,
-              Platform.OS !== 'android',
-            );
+            const capabilities = detectCameraCapabilities(device, controller);
             const parameters: AppliedCaptureParameters = assistedCaptureEnabled
               ? await applyAssistedCapturePlan(
                   createAssistedCapturePlan(capabilities, assistedSettings),
@@ -148,10 +142,17 @@ export const CameraCaptureView = forwardRef<CameraCaptureHandle, CameraCaptureVi
                   exposureTimeSeconds: 'automatic',
                   fallbacks: [],
                 };
-            const { filePath } = await photoOutput.capturePhotoToFile(
-              { enableShutterSound: true, flashMode: 'off' },
-              {},
-            );
+            let filePath: string;
+            try {
+              ({ filePath } = await photoOutput.capturePhotoToFile(
+                { enableShutterSound: true, flashMode: 'off' },
+                {},
+              ));
+            } finally {
+              if (Platform.OS === 'android' && parameters.exposureMode === 'manual') {
+                await controller.setExposureLocked(0, 0).catch(() => undefined);
+              }
+            }
             return {
               uri: `file://${filePath}`,
               metadata: createAstroPhotoMetadata(capabilities, parameters),

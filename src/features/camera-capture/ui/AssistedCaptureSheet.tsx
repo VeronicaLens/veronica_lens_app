@@ -1,4 +1,6 @@
 import { Lucide } from '@react-native-vector-icons/lucide';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,11 +31,30 @@ export function AssistedCaptureSheet({
 }: AssistedCaptureSheetProps) {
   const insets = useSafeAreaInsets();
   const manualExposureAvailable = plan?.iso !== null && plan?.exposureTimeSeconds !== null;
+  const [enabledFeedback, setEnabledFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabledFeedback) return;
+
+    const timeout = setTimeout(() => setEnabledFeedback(null), 2500);
+    return () => clearTimeout(timeout);
+  }, [enabledFeedback]);
+
+  function toggleEnabled() {
+    const nextEnabled = !enabled;
+    onEnabledChange(nextEnabled);
+    setEnabledFeedback(`Assistente de fotografia ${nextEnabled ? 'ativado' : 'desativado'}.`);
+  }
+
+  function closeSheet() {
+    setEnabledFeedback(null);
+    onClose();
+  }
 
   return (
     <Modal
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={closeSheet}
       statusBarTranslucent
       transparent
       visible={visible}
@@ -42,7 +63,7 @@ export function AssistedCaptureSheet({
         <Pressable
           accessibilityLabel="Fechar ajustes de captura"
           accessibilityRole="button"
-          onPress={onClose}
+          onPress={closeSheet}
           style={[StyleSheet.absoluteFill, styles.backdrop]}
         />
         <View
@@ -63,7 +84,7 @@ export function AssistedCaptureSheet({
               accessibilityLabel="Fechar ajustes"
               accessibilityRole="button"
               className="p-2"
-              onPress={onClose}
+              onPress={closeSheet}
             >
               <Lucide color={theme.colors.muted} name="x" size={20} />
             </Pressable>
@@ -73,7 +94,7 @@ export function AssistedCaptureSheet({
             accessibilityRole="switch"
             accessibilityState={{ checked: enabled }}
             className="min-h-12 flex-row items-center justify-between border-y border-border py-3"
-            onPress={() => onEnabledChange(!enabled)}
+            onPress={toggleEnabled}
           >
             <View className="flex-row items-center gap-3">
               <Lucide color={theme.colors.accent} name="sparkles" size={18} />
@@ -94,6 +115,16 @@ export function AssistedCaptureSheet({
               />
             </View>
           </Pressable>
+          {enabledFeedback ? (
+            <Animated.Text
+              entering={FadeIn.duration(150)}
+              exiting={FadeOut.duration(150)}
+              accessibilityLiveRegion="polite"
+              className="font-label text-[11px] text-accent"
+            >
+              {enabledFeedback}
+            </Animated.Text>
+          ) : null}
 
           {!capabilities || !plan ? (
             <Text className="font-body text-xs leading-5 text-muted">
@@ -180,7 +211,7 @@ export function AssistedCaptureSheet({
           <Pressable
             accessibilityRole="button"
             className="h-12 items-center justify-center rounded-pill bg-brand active:opacity-80"
-            onPress={onClose}
+            onPress={closeSheet}
           >
             <Text className="font-label text-xs text-ink">Concluir ajustes</Text>
           </Pressable>

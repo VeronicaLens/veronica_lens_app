@@ -1,4 +1,5 @@
 import { Lucide } from '@react-native-vector-icons/lucide';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,6 +10,7 @@ import {
   TextInput,
   View,
   type LayoutChangeEvent,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,15 +20,17 @@ import {
 } from '../../../features/celestial-projection/index.ts';
 import {
   flushPendingAstroPhotos,
+  getPendingAstroPhotoCount,
   saveCapturedAstroPhoto,
+  type AstroPhotoUploadFailure,
 } from '../../../features/astrophoto-storage/index.ts';
 import {
-  AssistedCaptureSheet,
   CameraCaptureView,
   cameraFailureMessage,
   createAssistedCapturePlan,
   describeAppliedCapture,
   useCameraAccess,
+  type AssistedCapturePlan,
   type AssistedCaptureSettings,
   type CameraCapabilities,
   type CameraCaptureHandle,
@@ -66,17 +70,20 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [captureBusy, setCaptureBusy] = useState(false);
+  const [uploadRetryBusy, setUploadRetryBusy] = useState(false);
+  const [photoUploadPending, setPhotoUploadPending] = useState(false);
   const [captureFeedback, setCaptureFeedback] = useState<string | null>(null);
   const [viewport, setViewport] = useState<ScreenViewport | null>(null);
   const [query, setQuery] = useState('');
   const [redNightMode, setRedNightMode] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [photoCaptureEnabled, setPhotoCaptureEnabled] = useState(true);
   const [assistedCaptureEnabled, setAssistedCaptureEnabled] = useState(true);
-  const [assistedSheetVisible, setAssistedSheetVisible] = useState(false);
   const [cameraCapabilities, setCameraCapabilities] = useState<CameraCapabilities | null>(null);
   const [assistedSettings, setAssistedSettings] = useState<AssistedCaptureSettings>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const windowWidth = useWindowDimensions().width;
   const insets = useSafeAreaInsets();
   const location = useDeviceLocation(cameraGranted);
   const orientation = useDeviceOrientation(cameraGranted);
@@ -99,12 +106,28 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
 
   useEffect(() => {
     if (!captureFeedback) return;
-    const timeout = setTimeout(() => setCaptureFeedback(null), 3500);
+    const timeout = setTimeout(() => setCaptureFeedback(null), 2700);
     return () => clearTimeout(timeout);
   }, [captureFeedback]);
 
   useEffect(() => {
-    void flushPendingAstroPhotos(accessToken);
+    if (!showHint) return;
+    const timeout = setTimeout(() => setShowHint(false), 2700);
+    return () => clearTimeout(timeout);
+  }, [showHint]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await flushPendingAstroPhotos(accessToken);
+      const pendingCount = await getPendingAstroPhotoCount();
+      if (!cancelled) setPhotoUploadPending(pendingCount > 0);
+    })().catch(() => {
+      if (!cancelled) setPhotoUploadPending(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [accessToken]);
 
   const projectedObjects = useMemo(() => {
@@ -132,6 +155,9 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
       cameraCapabilities ? createAssistedCapturePlan(cameraCapabilities, assistedSettings) : null,
     [assistedSettings, cameraCapabilities],
   );
+  const assistedHint = assistedPlan?.recommendations.find(({ id }) => id === 'exposure')?.title;
+  const manualExposurePlan = isManualExposurePlan(assistedPlan) ? assistedPlan : null;
+  const manualExposureAvailable = assistedCaptureEnabled && manualExposurePlan !== null;
   const accent = redNightMode ? '#F34B6B' : theme.colors.accent;
   const surface = redNightMode ? '#310B14' : theme.colors.surface;
   const border = redNightMode ? '#6D1A2B' : theme.colors.border;
@@ -149,11 +175,21 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   }
 
   const notice = captureFeedback
-    ? { message: captureFeedback, busy: captureBusy }
-    : getGuideNotice({ cameraReady, cameraError, location, orientation, sky });
+    ? {
+        message: captureFeedback,
+        busy: captureBusy || uploadRetryBusy,
+        ...(photoUploadPending ? { retry: retryPendingPhotos } : {}),
+      }
+    : photoUploadPending
+      ? {
+          message: 'Há uma foto salva no aparelho aguardando envio.',
+          busy: uploadRetryBusy,
+          retry: retryPendingPhotos,
+        }
+      : getGuideNotice({ cameraReady, cameraError, location, orientation, sky });
 
   async function capturePhoto() {
-    if (captureBusy) return;
+    if (captureBusy || !photoCaptureEnabled) return;
     setCaptureBusy(true);
     setCaptureFeedback('Capturando o céu...');
     try {
@@ -166,16 +202,54 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
         latitude: location.location?.latitudeDegrees ?? null,
         longitude: location.location?.longitudeDegrees ?? null,
       });
-      setCaptureFeedback(
-        persistence === 'uploaded'
-          ? `${describeAppliedCapture(photo.metadata.parameters)} Foto salva no histórico.`
-          : 'Foto preservada no aparelho. O envio será repetido quando houver conexão.',
-      );
+      if (persistence.status === 'uploaded') {
+        setPhotoUploadPending(false);
+        setCaptureFeedback(
+          `${describeAppliedCapture(photo.metadata.parameters)} Foto salva no histórico.`,
+        );
+      } else {
+        setPhotoUploadPending(true);
+        setCaptureFeedback(uploadFailureMessage(persistence.failure));
+      }
     } catch (error) {
       setCaptureFeedback(cameraFailureMessage(error));
     } finally {
       setCaptureBusy(false);
     }
+  }
+
+  async function retryPendingPhotos() {
+    if (uploadRetryBusy) return;
+    setUploadRetryBusy(true);
+    setCaptureFeedback('Tentando enviar fotos pendentes...');
+    try {
+      const result = await flushPendingAstroPhotos(accessToken);
+      setPhotoUploadPending(result.remainingCount > 0);
+      setCaptureFeedback(
+        result.remainingCount === 0
+          ? `${result.uploadedCount} foto${result.uploadedCount === 1 ? '' : 's'} enviada${result.uploadedCount === 1 ? '' : 's'} ao histórico.`
+          : uploadFailureMessage(result.lastFailure),
+      );
+    } catch {
+      setPhotoUploadPending(true);
+      setCaptureFeedback('Não foi possível verificar o envio. A foto continua salva no aparelho.');
+    } finally {
+      setUploadRetryBusy(false);
+    }
+  }
+
+  function togglePhotoCapture() {
+    const enabled = !photoCaptureEnabled;
+    setPhotoCaptureEnabled(enabled);
+    if (!enabled) setShowHint(false);
+    setCaptureFeedback(`Captura de fotos ${enabled ? 'ativada' : 'desativada'}.`);
+  }
+
+  function toggleAssistedCapture() {
+    const enabled = !assistedCaptureEnabled;
+    setAssistedCaptureEnabled(enabled);
+    setShowHint(enabled);
+    if (!enabled) setCaptureFeedback('Assistente de fotografia desativado.');
   }
 
   return (
@@ -226,62 +300,95 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
               icon="moon"
               onPress={() => setRedNightMode((value) => !value)}
             />
+            <View className="relative">
+              <CircleButton
+                accessibilityLabel="Mostrar dica de uso"
+                color={accent}
+                icon="circle-help"
+                onPress={() => setShowHint((value) => !value)}
+              />
+              {showHint ? (
+                <Animated.View
+                  entering={FadeIn.duration(150)}
+                  exiting={FadeOut.duration(150)}
+                  pointerEvents="none"
+                  className="absolute top-0 h-11 flex-row items-center gap-2 rounded-control border px-3"
+                  style={{
+                    backgroundColor: surface,
+                    borderColor: border,
+                    elevation: 8,
+                    right: 48,
+                    width: Math.min(252, windowWidth - 72),
+                    zIndex: 20,
+                  }}
+                >
+                  <Lucide
+                    color={accent}
+                    name={assistedCaptureEnabled ? 'sparkles' : 'info'}
+                    size={14}
+                  />
+                  <Text className="flex-1 font-body text-[11px] text-ink" numberOfLines={1}>
+                    {assistedCaptureEnabled && assistedHint
+                      ? assistedHint
+                      : 'Aponte para o céu e mova lentamente'}
+                  </Text>
+                </Animated.View>
+              ) : null}
+            </View>
             <CircleButton
-              accessibilityLabel="Mostrar dica de uso"
+              accessibilityLabel={
+                photoCaptureEnabled ? 'Desativar captura de fotos' : 'Ativar captura de fotos'
+              }
+              active={photoCaptureEnabled}
               color={accent}
-              icon="circle-help"
-              onPress={() => setShowHint((value) => !value)}
+              icon="camera"
+              onPress={togglePhotoCapture}
             />
-            <CircleButton
-              accessibilityLabel="Ajustes da fotografia assistida"
-              active={assistedCaptureEnabled}
-              color={accent}
-              icon="sparkles"
-              onPress={() => setAssistedSheetVisible(true)}
-            />
+            {photoCaptureEnabled ? (
+              <CircleButton
+                accessibilityLabel={
+                  assistedCaptureEnabled
+                    ? 'Desativar assistente de fotografia'
+                    : 'Ativar assistente de fotografia'
+                }
+                active={assistedCaptureEnabled}
+                color={accent}
+                icon="sparkles"
+                onPress={toggleAssistedCapture}
+              />
+            ) : null}
           </View>
         </View>
 
-        {showHint ? (
-          <Pressable
-            accessibilityRole="button"
-            className="absolute right-4 top-[160px] max-w-[230px] flex-row items-start gap-2 rounded-control border px-3 py-2.5"
-            onPress={() => setShowHint(false)}
-            style={{ backgroundColor: surface, borderColor: border }}
-          >
-            <Lucide color={accent} name="sparkles" size={14} />
-            <Text className="flex-1 font-body text-[11px] leading-4 text-ink">
-              Aponte para o céu e mova lentamente
-            </Text>
-          </Pressable>
-        ) : null}
-
         {notice ? (
-          <View
-            className="mx-4 mt-3 flex-row items-center gap-2 rounded-control border px-3 py-2"
-            style={{ backgroundColor: surface, borderColor: border }}
-          >
-            {notice.busy ? (
-              <ActivityIndicator color={accent} size="small" />
-            ) : (
-              <Lucide color={accent} name="info" size={15} />
-            )}
-            <Text
-              accessibilityLiveRegion="polite"
-              className="flex-1 font-body text-[11px] leading-4 text-ink"
+          <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
+            <View
+              className="mx-4 mt-3 flex-row items-center gap-2 rounded-control border px-3 py-2"
+              style={{ backgroundColor: surface, borderColor: border }}
             >
-              {notice.message}
-            </Text>
-            {notice.retry ? (
-              <Pressable
-                accessibilityRole="button"
-                className="p-1 active:opacity-70"
-                onPress={notice.retry}
+              {notice.busy ? (
+                <ActivityIndicator color={accent} size="small" />
+              ) : (
+                <Lucide color={accent} name="info" size={15} />
+              )}
+              <Text
+                accessibilityLiveRegion="polite"
+                className="flex-1 font-body text-[11px] leading-4 text-ink"
               >
-                <Lucide color={accent} name="refresh-cw" size={16} />
-              </Pressable>
-            ) : null}
-          </View>
+                {notice.message}
+              </Text>
+              {notice.retry ? (
+                <Pressable
+                  accessibilityLabel="Tentar enviar foto novamente"
+                  accessibilityRole="button"
+                  className="p-1 active:opacity-70"
+                  onPress={notice.retry}
+                >
+                  <Lucide color={accent} name="refresh-cw" size={16} />
+                </Pressable>
+              ) : null}
+            </View>
+          </Animated.View>
         ) : null}
 
         <View pointerEvents="none" style={styles.reticle}>
@@ -396,40 +503,131 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
           </View>
         ) : null}
 
-        <View className="absolute w-full items-center" style={{ bottom: 16 + insets.bottom }}>
-          <Pressable
-            accessibilityLabel="Capturar foto do céu"
-            accessibilityRole="button"
-            accessibilityState={{ busy: captureBusy, disabled: !cameraReady || captureBusy }}
-            className="h-[68px] w-[68px] items-center justify-center rounded-full border-2 border-ink bg-canvas/60 active:opacity-75"
-            disabled={!cameraReady || captureBusy}
-            onPress={() => void capturePhoto()}
+        {photoCaptureEnabled ? (
+          <View
+            className="absolute w-full flex-row items-center justify-center gap-3"
+            style={{ bottom: 16 + insets.bottom }}
           >
-            {captureBusy ? (
-              <ActivityIndicator color={accent} />
-            ) : (
-              <View
-                className="h-[52px] w-[52px] rounded-full"
-                style={{ backgroundColor: accent }}
+            {manualExposureAvailable && manualExposurePlan && cameraCapabilities ? (
+              <QuickSettingButton
+                label="ISO"
+                value={`${Math.round(manualExposurePlan.iso)}`}
+                onPress={() =>
+                  setAssistedSettings((current) => ({
+                    ...current,
+                    iso: nextPreset(
+                      manualExposurePlan.iso,
+                      cameraCapabilities.iso.minimum ?? manualExposurePlan.iso,
+                      cameraCapabilities.iso.maximum ?? manualExposurePlan.iso,
+                      [100, 200, 400, 800, 1600, 3200],
+                    ),
+                  }))
+                }
               />
-            )}
-          </Pressable>
-        </View>
+            ) : null}
+            <Pressable
+              accessibilityLabel="Capturar foto do céu"
+              accessibilityRole="button"
+              accessibilityState={{ busy: captureBusy, disabled: !cameraReady || captureBusy }}
+              className="h-[68px] w-[68px] items-center justify-center rounded-full border-2 border-ink bg-canvas/60 active:opacity-75"
+              disabled={!cameraReady || captureBusy}
+              onPress={() => void capturePhoto()}
+            >
+              {captureBusy ? (
+                <ActivityIndicator color={accent} />
+              ) : (
+                <View
+                  className="h-[52px] w-[52px] rounded-full"
+                  style={{ backgroundColor: accent }}
+                />
+              )}
+            </Pressable>
+            {manualExposureAvailable && manualExposurePlan && cameraCapabilities ? (
+              <QuickSettingButton
+                label="Obturador"
+                value={formatShutter(manualExposurePlan.exposureTimeSeconds)}
+                onPress={() =>
+                  setAssistedSettings((current) => ({
+                    ...current,
+                    exposureTimeSeconds: nextPreset(
+                      manualExposurePlan.exposureTimeSeconds,
+                      cameraCapabilities.exposureTime.minimum ??
+                        manualExposurePlan.exposureTimeSeconds,
+                      cameraCapabilities.exposureTime.maximum ??
+                        manualExposurePlan.exposureTimeSeconds,
+                      [1 / 250, 1 / 125, 1 / 60, 1 / 30, 1 / 15, 1 / 8, 1 / 4, 1 / 2, 1],
+                    ),
+                  }))
+                }
+              />
+            ) : null}
+          </View>
+        ) : null}
       </SafeAreaView>
-      <AssistedCaptureSheet
-        visible={assistedSheetVisible}
-        enabled={assistedCaptureEnabled}
-        capabilities={cameraCapabilities}
-        plan={assistedPlan}
-        settings={assistedSettings}
-        onClose={() => setAssistedSheetVisible(false)}
-        onEnabledChange={setAssistedCaptureEnabled}
-        onSettingsChange={(nextSettings) =>
-          setAssistedSettings((current) => ({ ...current, ...nextSettings }))
-        }
-      />
     </View>
   );
+}
+
+function QuickSettingButton({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  onPress(): void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`${label}: ${value}. Toque para alterar`}
+      accessibilityRole="button"
+      className="h-12 min-w-[70px] items-center justify-center rounded-control border border-border bg-surface px-2 active:opacity-75"
+      onPress={onPress}
+    >
+      <Text className="font-body text-[9px] text-muted">{label}</Text>
+      <Text className="font-label text-[11px] text-ink">{value}</Text>
+    </Pressable>
+  );
+}
+
+function nextPreset(current: number, minimum: number, maximum: number, presets: number[]): number {
+  const values = [
+    minimum,
+    ...presets.filter((value) => value > minimum && value < maximum),
+    maximum,
+  ]
+    .filter((value, index, all) => all.indexOf(value) === index)
+    .sort((left, right) => left - right);
+  const currentIndex = values.findIndex((value) => Math.abs(value - current) < 0.000001);
+  return values[(currentIndex + 1) % values.length] ?? current;
+}
+
+function formatShutter(seconds: number | null): string {
+  if (seconds === null) return 'Auto';
+  if (seconds >= 1) return `${Number(seconds.toFixed(1))}s`;
+  return `1/${Math.round(1 / seconds)}`;
+}
+
+function uploadFailureMessage(failure: AstroPhotoUploadFailure | null): string {
+  if (failure?.kind === 'http') {
+    const operation =
+      failure.message === 'Observation metadata could not be saved'
+        ? ' ao salvar a observação'
+        : failure.message === 'Astrophoto could not be uploaded'
+          ? ' ao enviar o arquivo para o Storage'
+          : failure.message === 'Astrophoto metadata could not be saved'
+            ? ' ao salvar os metadados da foto'
+            : '';
+    const code = failure.code ? ` (${failure.code})` : '';
+    return `API HTTP ${failure.status}${code}${operation}. A foto permanece no aparelho.`;
+  }
+  return 'A API não respondeu. A foto permanece no aparelho; tente novamente.';
+}
+
+function isManualExposurePlan(
+  plan: AssistedCapturePlan | null,
+): plan is AssistedCapturePlan & { iso: number; exposureTimeSeconds: number } {
+  return plan?.exposureMode === 'manual' && plan.iso !== null && plan.exposureTimeSeconds !== null;
 }
 
 function CircleButton({
@@ -442,7 +640,7 @@ function CircleButton({
   accessibilityLabel: string;
   active?: boolean;
   color: string;
-  icon: 'chevron-left' | 'moon' | 'circle-help' | 'sparkles';
+  icon: 'chevron-left' | 'moon' | 'circle-help' | 'camera' | 'sparkles';
   onPress(): void;
 }) {
   return (

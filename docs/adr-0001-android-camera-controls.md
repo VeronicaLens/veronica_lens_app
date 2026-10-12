@@ -41,9 +41,9 @@ consultar as capacidades anunciadas.
    câmera no binário.
 3. O MVP oferecerá foco por toque, medição/lock 3A e compensação de exposição somente após
    verificar a capacidade da câmera selecionada.
-4. ISO e tempo de exposição manual não bloquearão o MVP. Um futuro adaptador Android deverá usar
-   Camera2 via CameraX Interop e só habilitar esses controles quando `MANUAL_SENSOR` e os respectivos
-   intervalos existirem.
+4. O Android usa Camera2 via CameraX Interop para ISO e tempo de exposição manuais, habilitando os
+   controles somente quando a câmera anuncia `MANUAL_SENSOR` e os respectivos intervalos. Os valores
+   são limitados por hardware e a exposição automática é restaurada após a captura.
 5. O produto nunca exibirá um controle sem efeito. A interface é derivada de uma fotografia das
    capacidades da câmera ativa e deve voltar ao modo automático em falha ou troca de lente.
 
@@ -63,17 +63,16 @@ consultar as capacidades anunciadas.
 
 - O app de desenvolvimento deixa de depender apenas do Expo Go a partir da VRLENS-52.
 - A primeira entrega não promete “modo manual” em todos os aparelhos Android.
-- Uma ponte nativa para ISO/obturador é deliberadamente adiada até haver evidência em aparelhos e
-  valor suficiente para assumir seu custo de manutenção.
+- A extensão Android do VisionCamera é mantida em `patches/` via `patch-package`; alterações nela
+  exigem um novo Development Build.
 - Toda telemetria de capacidade deve conter somente fabricante, modelo, versão Android, câmera e
   intervalos técnicos; não deve conter foto, localização ou identificadores pessoais.
 
 ## Validação pendente em hardware
 
-A análise de API está concluída. O teste físico não foi executado neste ambiente por não haver dois
-aparelhos conectados nem um Development Build com VisionCamera. O procedimento e a tabela de
-evidências estão em [VRLENS-40 — protocolo de validação](spikes/VRLENS-40-camera-controls.md) e devem
-ser executados como primeiro passo da VRLENS-52, antes de disponibilizar controles avançados.
+A implementação Camera2 está no código, mas ainda precisa ser compilada e exercitada em aparelhos.
+O procedimento e a tabela de evidências estão em [VRLENS-40 — protocolo de validação](spikes/VRLENS-40-camera-controls.md);
+validar ao menos uma câmera com `MANUAL_SENSOR` e uma sem suporte antes da liberação.
 
 ## Referências
 

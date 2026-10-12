@@ -20,7 +20,26 @@ export class ApiAstroPhotoUploader implements AstroPhotoUploader {
       },
     );
     if (response.status < 200 || response.status >= 300) {
-      throw new Error(`Astrophoto upload failed with status ${response.status}`);
+      const details = readApiError(response.body);
+      throw Object.assign(new Error('Astrophoto upload failed'), {
+        status: response.status,
+        ...details,
+      });
     }
+  }
+}
+
+function readApiError(body: string): { code?: string; message?: string } {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (typeof parsed !== 'object' || parsed === null || !('error' in parsed)) return {};
+    const error = parsed.error;
+    if (typeof error !== 'object' || error === null) return {};
+    const code = 'code' in error && typeof error.code === 'string' ? error.code : undefined;
+    const message =
+      'message' in error && typeof error.message === 'string' ? error.message : undefined;
+    return { ...(code ? { code } : {}), ...(message ? { message } : {}) };
+  } catch {
+    return {};
   }
 }
