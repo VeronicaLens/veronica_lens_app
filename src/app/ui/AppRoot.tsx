@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getRecoveryAccessToken, useAuthSession } from '../../features/auth/index.ts';
 import { getEventIdFromUrl } from '../../features/astronomical-events/index.ts';
+import type { DeviceLocation } from '../../features/device-location/index.ts';
 import {
   clearStoredPushDevice,
   deactivateStoredPushDevice,
@@ -18,6 +19,7 @@ import {
 import { AuthPage } from '../../pages/auth/index.ts';
 import { SkyGuidePage } from '../../pages/camera/index.ts';
 import { EventsPage } from '../../pages/events/index.ts';
+import { ObservationConditionsPage } from '../../pages/conditions/index.ts';
 import { HomePage } from '../../pages/home/index.ts';
 import { LearnPage } from '../../pages/learn/index.ts';
 import { ObservationHistoryPage } from '../../pages/observation-history/index.ts';
@@ -37,6 +39,7 @@ export function AppRoot() {
   const [authenticatedPage, setAuthenticatedPage] = useState<AuthenticatedPage>('home');
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [notificationEventId, setNotificationEventId] = useState<string | null>(null);
+  const [conditionObserver, setConditionObserver] = useState<DeviceLocation | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setMinLoadingElapsed(true), 5000);
@@ -97,6 +100,7 @@ export function AppRoot() {
               onLogout={async () => {
                 setAuthenticatedPage('home');
                 setProfileDisplayName(null);
+                setConditionObserver(null);
                 if (auth.session?.accessToken) {
                   await deactivateStoredPushDevice(auth.session.accessToken);
                 }
@@ -118,6 +122,12 @@ export function AppRoot() {
               initialEventId={notificationEventId}
               onInitialEventHandled={() => setNotificationEventId(null)}
             />
+          ) : authenticatedPage === 'conditions' ? (
+            <ObservationConditionsPage
+              accessToken={auth.session.accessToken}
+              initialLocation={conditionObserver}
+              onBack={() => setAuthenticatedPage('home')}
+            />
           ) : authenticatedPage === 'learn' ? (
             <LearnPage accessToken={auth.session.accessToken} />
           ) : (
@@ -132,9 +142,13 @@ export function AppRoot() {
               }}
               onOpenEvents={() => setAuthenticatedPage('events')}
               onOpenHistory={() => setAuthenticatedPage('history')}
+              onOpenConditionSimulation={(location) => {
+                setConditionObserver(location);
+                setAuthenticatedPage('conditions');
+              }}
             />
           )}
-          {authenticatedPage === 'camera' ? null : (
+          {authenticatedPage === 'camera' || authenticatedPage === 'conditions' ? null : (
             <BottomNavigation activePage={authenticatedPage} onNavigate={setAuthenticatedPage} />
           )}
         </View>

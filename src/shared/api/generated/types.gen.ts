@@ -289,14 +289,40 @@ export type ObservationRecommendationResponse = {
 export type ObservationRating = 'good' | 'fair' | 'poor';
 
 export type CurrentConditions = {
+    requestedAt: string;
+    /**
+     * Time of the hourly forecast sample used; this is not an on-site observation.
+     */
     observedAt: string;
+    fetchedAt: string;
     temperatureCelsius: number;
+    relativeHumidityPercent: number;
     cloudCoverPercent: number;
     precipitationProbabilityPercent: number;
+    precipitationMillimeters: number;
     visibilityMeters: number;
+    windSpeedKilometersPerHour: number;
     rating: ObservationRating;
+    factors: Array<CurrentConditionsFactor>;
     skyLabel: string;
     visibilityLabel: string;
+};
+
+export type CurrentConditionsFactor = {
+    code: 'cloud-cover' | 'precipitation' | 'visibility' | 'wind' | 'humidity';
+    status: 'good' | 'caution' | 'poor';
+    summary: string;
+};
+
+export type CurrentConditionsForecast = {
+    from: string;
+    to: string;
+    fetchedAt: string;
+    hourly: Array<CurrentConditions>;
+};
+
+export type CurrentConditionsForecastResponse = {
+    data: CurrentConditionsForecast;
 };
 
 export type CurrentConditionsResponse = {
@@ -1118,7 +1144,7 @@ export type GetUpcomingEventsResponses = {
 
 export type GetUpcomingEventsResponse = GetUpcomingEventsResponses[keyof GetUpcomingEventsResponses];
 
-export type GetCurrentConditionsData = {
+export type GetConditionsForecastData = {
     body?: never;
     path?: never;
     query: {
@@ -1126,12 +1152,54 @@ export type GetCurrentConditionsData = {
         longitudeDegrees: number;
         elevationMeters?: number;
     };
+    url: '/conditions/forecast';
+};
+
+export type GetConditionsForecastErrors = {
+    /**
+     * Invalid observer coordinates.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Weather forecast provider unavailable or returned no hourly samples.
+     */
+    503: ErrorResponse;
+};
+
+export type GetConditionsForecastError = GetConditionsForecastErrors[keyof GetConditionsForecastErrors];
+
+export type GetConditionsForecastResponses = {
+    /**
+     * Hourly weather estimates and assessment factors for the forecast horizon.
+     */
+    200: CurrentConditionsForecastResponse;
+};
+
+export type GetConditionsForecastResponse = GetConditionsForecastResponses[keyof GetConditionsForecastResponses];
+
+export type GetCurrentConditionsData = {
+    body?: never;
+    path?: never;
+    query: {
+        latitudeDegrees: number;
+        longitudeDegrees: number;
+        elevationMeters?: number;
+        /**
+         * Optional future local selection represented as an ISO 8601 instant. The API evaluates the nearest hourly forecast sample, up to seven days ahead.
+         *
+         */
+        at?: string;
+    };
     url: '/conditions/current';
 };
 
 export type GetCurrentConditionsErrors = {
     /**
-     * Invalid observer coordinates.
+     * Invalid observer coordinates or a requested time outside the next seven days.
      */
     400: ErrorResponse;
     /**
@@ -1148,7 +1216,8 @@ export type GetCurrentConditionsError = GetCurrentConditionsErrors[keyof GetCurr
 
 export type GetCurrentConditionsResponses = {
     /**
-     * Current sky, weather and visibility conditions for the observer.
+     * Hourly weather estimate. observedAt identifies the forecast sample time, not a real-time measurement at the observer location.
+     *
      */
     200: CurrentConditionsResponse;
 };
