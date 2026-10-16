@@ -40,6 +40,7 @@ const backgroundImage = require('../../../../assets/loading-background.jpeg') as
 interface ProfilePageProps {
   accessToken: string;
   email: string;
+  onAccountDeleted(): Promise<void>;
   onLogout(): Promise<void>;
   onOpenHistory(): void;
   onSaved(profile: Profile): void;
@@ -172,6 +173,7 @@ function MenuRow({
 export function ProfilePage({
   accessToken,
   email,
+  onAccountDeleted,
   onLogout,
   onOpenHistory,
   onSaved,
@@ -312,7 +314,14 @@ export function ProfilePage({
   }, [history.observations]);
 
   if (accountScreen === 'privacy') {
-    return <PrivacyScreen email={email} onBack={() => setAccountScreen(null)} />;
+    return (
+      <PrivacyScreen
+        accessToken={accessToken}
+        email={email}
+        onAccountDeleted={onAccountDeleted}
+        onBack={() => setAccountScreen(null)}
+      />
+    );
   }
   if (accountScreen === 'permissions') {
     return <DevicePermissionsScreen onBack={() => setAccountScreen(null)} />;

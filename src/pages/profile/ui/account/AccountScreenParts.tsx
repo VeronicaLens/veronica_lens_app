@@ -18,7 +18,10 @@ export function AccountScreenLayout({
 }) {
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerClassName="gap-6 px-5 pb-10 pt-5">
+      <ScrollView
+        contentContainerClassName="gap-6 px-5 pb-10 pt-5"
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="gap-2">
           <Pressable
             accessibilityLabel="Voltar ao perfil"

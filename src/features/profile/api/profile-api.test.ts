@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { ProfileResponse } from '../../../shared/api/index.ts';
-import { getProfile, updateProfile } from './profile-api.ts';
+import { deleteAccount, getProfile, updateProfile } from './profile-api.ts';
 
 const response: ProfileResponse = {
   data: {
@@ -39,4 +39,17 @@ test('updates profile preferences through PATCH', async () => {
     return response as T;
   };
   await updateProfile('token', { notificationsEnabled: false }, request);
+});
+
+test('deletes the account through DELETE /profile with bearer authentication', async () => {
+  let called = false;
+  const request = async <T>(path: string, init?: RequestInit) => {
+    called = true;
+    assert.equal(path, '/profile');
+    assert.equal(init?.method, 'DELETE');
+    assert.equal((init?.headers as Record<string, string>).Authorization, 'Bearer token');
+    return undefined as T;
+  };
+  await deleteAccount('token', request);
+  assert.equal(called, true);
 });

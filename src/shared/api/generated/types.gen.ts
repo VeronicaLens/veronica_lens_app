@@ -789,6 +789,35 @@ export type UpdatePasswordResponses = {
 
 export type UpdatePasswordResponse = UpdatePasswordResponses[keyof UpdatePasswordResponses];
 
+export type DeleteAccountData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/profile';
+};
+
+export type DeleteAccountErrors = {
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Deletion could not be completed; the account is kept and the client may retry.
+     */
+    503: ErrorResponse;
+};
+
+export type DeleteAccountError = DeleteAccountErrors[keyof DeleteAccountErrors];
+
+export type DeleteAccountResponses = {
+    /**
+     * Account and associated data deleted.
+     */
+    204: void;
+};
+
+export type DeleteAccountResponse = DeleteAccountResponses[keyof DeleteAccountResponses];
+
 export type GetProfileData = {
     body?: never;
     path?: never;
@@ -846,6 +875,39 @@ export type UpdateProfileResponses = {
 };
 
 export type UpdateProfileResponse = UpdateProfileResponses[keyof UpdateProfileResponses];
+
+export type UploadProfileAvatarData = {
+    body: Blob | File;
+    path?: never;
+    query?: never;
+    url: '/profile/avatar';
+};
+
+export type UploadProfileAvatarErrors = {
+    /**
+     * Avatar content type or body is invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Storage is temporarily unavailable; the client may retry.
+     */
+    503: ErrorResponse;
+};
+
+export type UploadProfileAvatarError = UploadProfileAvatarErrors[keyof UploadProfileAvatarErrors];
+
+export type UploadProfileAvatarResponses = {
+    /**
+     * Avatar uploaded and profile updated.
+     */
+    200: ProfileResponse;
+};
+
+export type UploadProfileAvatarResponse = UploadProfileAvatarResponses[keyof UploadProfileAvatarResponses];
 
 export type SearchCelestialObjectsData = {
     body?: never;
