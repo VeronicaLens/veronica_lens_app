@@ -263,9 +263,9 @@ export function HomePage({
                 onPress={onOpenEvents}
               />
               <QuickAccessCard
-                description="Reveja suas capturas anteriores."
-                icon="clock-3"
-                label="Histórico"
+                description="Reveja suas astrofotos por dia, mês ou ano."
+                icon="images"
+                label="Galeria"
                 onPress={onOpenHistory}
               />
             </View>

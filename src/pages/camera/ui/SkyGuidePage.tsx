@@ -268,7 +268,7 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
       });
       if (persistence.status === 'uploaded') {
         setCaptureFeedback(
-          `${describeAppliedCapture(photo.metadata.parameters)} Foto salva no histórico.`,
+          `${describeAppliedCapture(photo.metadata.parameters)} Foto salva na galeria.`,
         );
       } else {
         setCaptureFeedback(`${describeAppliedCapture(photo.metadata.parameters)} Foto salva.`);

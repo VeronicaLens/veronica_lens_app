@@ -22,7 +22,7 @@ export function useObservationHistory(accessToken: string) {
       setPage(response.page);
       setHasMore(response.hasMore);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível carregar seu histórico.');
+      setError(cause instanceof Error ? cause.message : 'Não foi possível carregar sua galeria.');
     } finally {
       setLoading(false);
     }
