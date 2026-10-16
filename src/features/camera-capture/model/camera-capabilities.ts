@@ -27,6 +27,10 @@ export interface CameraCapabilities {
   exposureCompensation: CameraNumericCapability;
   iso: CameraNumericCapability;
   exposureTime: CameraNumericCapability;
+  whiteBalance: {
+    lockingSupported: boolean;
+    maxGain: number;
+  };
 }
 
 /** Minimum subset of native device information needed by capability detection. */
@@ -40,6 +44,8 @@ export interface CameraCapabilityDevice {
   supportsExposureBias: boolean;
   minExposureBias: number;
   maxExposureBias: number;
+  supportsWhiteBalanceLocking?: boolean;
+  maxWhiteBalanceGain?: number;
 }
 
 /** Values that only become available after VisionCamera creates its controller. */
@@ -95,7 +101,17 @@ export function detectCameraCapabilities(
       controller?.maxExposureDuration,
       'seconds',
     ),
+    whiteBalance: whiteBalanceCapability(device),
   };
+}
+
+function whiteBalanceCapability(
+  device: CameraCapabilityDevice,
+): CameraCapabilities['whiteBalance'] {
+  const maxGain = device.maxWhiteBalanceGain ?? 0;
+  const lockingSupported =
+    device.supportsWhiteBalanceLocking === true && Number.isFinite(maxGain) && maxGain >= 1;
+  return { lockingSupported, maxGain: lockingSupported ? maxGain : 0 };
 }
 
 function exposureFallback(

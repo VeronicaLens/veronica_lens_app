@@ -1,4 +1,4 @@
-import { Lucide } from '@react-native-vector-icons/lucide';
+import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -10,30 +10,37 @@ import {
   TextInput,
   View,
   type LayoutChangeEvent,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  constellationFigures,
+  projectConstellationFigure,
   projectVisibleCelestialObjects,
   type ScreenViewport,
 } from '../../../features/celestial-projection/index.ts';
 import {
   flushPendingAstroPhotos,
-  getPendingAstroPhotoCount,
   saveCapturedAstroPhoto,
-  type AstroPhotoUploadFailure,
 } from '../../../features/astrophoto-storage/index.ts';
 import {
+  buildCaptureTips,
   CameraCaptureView,
   cameraFailureMessage,
+  CaptureControlsPanel,
+  captureProfiles,
   createAssistedCapturePlan,
   describeAppliedCapture,
+  findCaptureProfile,
   useCameraAccess,
-  type AssistedCapturePlan,
   type AssistedCaptureSettings,
   type CameraCapabilities,
   type CameraCaptureHandle,
+  type CameraZoomRange,
+  type CaptureProfile,
+  type CaptureProfileId,
+  type CaptureTipAction,
+  type CaptureTipTopic,
 } from '../../../features/camera-capture/index.ts';
 import { useDeviceLocation } from '../../../features/device-location/index.ts';
 import { useDeviceOrientation } from '../../../features/device-orientation/index.ts';
@@ -59,6 +66,28 @@ interface ProjectionCandidate {
   object: SkyGuideObjectPosition;
 }
 
+const profileIcons: Record<CaptureProfileId, LucideIconName> = {
+  'deep-sky': 'sparkles',
+  moon: 'moon',
+  landscape: 'mountain',
+};
+
+const profileShortLabels: Record<CaptureProfileId, string> = {
+  'deep-sky': 'Céu profundo',
+  moon: 'Lua e planetas',
+  landscape: 'Paisagem',
+};
+
+const tipIcons: Record<CaptureTipTopic, LucideIconName> = {
+  profile: 'aperture',
+  exposure: 'sun',
+  zoom: 'zoom-in',
+  stability: 'hand',
+  framing: 'move-up',
+  level: 'move-horizontal',
+  focus: 'focus',
+};
+
 export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const {
     granted: cameraGranted,
@@ -70,8 +99,6 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [captureBusy, setCaptureBusy] = useState(false);
-  const [uploadRetryBusy, setUploadRetryBusy] = useState(false);
-  const [photoUploadPending, setPhotoUploadPending] = useState(false);
   const [captureFeedback, setCaptureFeedback] = useState<string | null>(null);
   const [viewport, setViewport] = useState<ScreenViewport | null>(null);
   const [query, setQuery] = useState('');
@@ -79,11 +106,21 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   const [showHint, setShowHint] = useState(false);
   const [photoCaptureEnabled, setPhotoCaptureEnabled] = useState(true);
   const [assistedCaptureEnabled, setAssistedCaptureEnabled] = useState(true);
+  const [selectedProfileId, setSelectedProfileId] = useState<CaptureProfileId>('deep-sky');
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [tipIndex, setTipIndex] = useState(0);
+  const [tipExpanded, setTipExpanded] = useState(false);
+  const [skyOverlayEnabled, setSkyOverlayEnabled] = useState(true);
+  const [levelEnabled, setLevelEnabled] = useState(false);
+  const [cameraZoom, setCameraZoom] = useState(1);
+  const [cameraZoomRange, setCameraZoomRange] = useState<CameraZoomRange | null>(null);
   const [cameraCapabilities, setCameraCapabilities] = useState<CameraCapabilities | null>(null);
-  const [assistedSettings, setAssistedSettings] = useState<AssistedCaptureSettings>({});
+  const [assistedSettings, setAssistedSettings] = useState<AssistedCaptureSettings>({
+    iso: 1600,
+    exposureTimeSeconds: 1 / 4,
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const windowWidth = useWindowDimensions().width;
   const insets = useSafeAreaInsets();
   const location = useDeviceLocation(cameraGranted);
   const orientation = useDeviceOrientation(cameraGranted);
@@ -117,17 +154,8 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   }, [showHint]);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await flushPendingAstroPhotos(accessToken);
-      const pendingCount = await getPendingAstroPhotoCount();
-      if (!cancelled) setPhotoUploadPending(pendingCount > 0);
-    })().catch(() => {
-      if (!cancelled) setPhotoUploadPending(true);
-    });
-    return () => {
-      cancelled = true;
-    };
+    // Pending photos are retried silently; the camera screen should not show upload alerts.
+    void flushPendingAstroPhotos(accessToken).catch(() => undefined);
   }, [accessToken]);
 
   const projectedObjects = useMemo(() => {
@@ -149,15 +177,61 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
     });
   }, [orientation.orientation, query, sky.positions, viewport]);
 
+  const observerLocation = location.location;
+  const projectedFigures = useMemo(() => {
+    if (!skyOverlayEnabled || !viewport || !orientation.orientation || !observerLocation) {
+      return [];
+    }
+    const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
+    const observedAt = new Date();
+    const context = {
+      orientation: orientation.orientation,
+      fieldOfView: CAMERA_FIELD_OF_VIEW,
+      viewport,
+    };
+    return constellationFigures.flatMap((figure) => {
+      const name = sky.positions.find(({ id }) => id === figure.id)?.name ?? figure.id;
+      if (normalizedQuery && !name.toLocaleLowerCase('pt-BR').includes(normalizedQuery)) return [];
+      const projection = projectConstellationFigure(figure, observerLocation, observedAt, context);
+      return projection ? [projection] : [];
+    });
+  }, [
+    observerLocation,
+    orientation.orientation,
+    query,
+    sky.positions,
+    skyOverlayEnabled,
+    viewport,
+  ]);
+
   const selectedObject = sky.positions.find((object) => object.id === selectedId) ?? null;
   const assistedPlan = useMemo(
     () =>
       cameraCapabilities ? createAssistedCapturePlan(cameraCapabilities, assistedSettings) : null,
     [assistedSettings, cameraCapabilities],
   );
-  const assistedHint = assistedPlan?.recommendations.find(({ id }) => id === 'exposure')?.title;
-  const manualExposurePlan = isManualExposurePlan(assistedPlan) ? assistedPlan : null;
-  const manualExposureAvailable = assistedCaptureEnabled && manualExposurePlan !== null;
+  const captureTips = useMemo(
+    () =>
+      buildCaptureTips({
+        profileId: selectedProfileId,
+        target: selectedObject ? { name: selectedObject.name, type: selectedObject.type } : null,
+        plan: assistedPlan,
+        capabilities: cameraCapabilities,
+        zoom: cameraZoom,
+        zoomRange: cameraZoomRange,
+        orientation: orientation.orientation,
+      }),
+    [
+      assistedPlan,
+      cameraCapabilities,
+      cameraZoom,
+      cameraZoomRange,
+      orientation.orientation,
+      selectedObject,
+      selectedProfileId,
+    ],
+  );
+  const currentTip = captureTips.length > 0 ? captureTips[tipIndex % captureTips.length] : null;
   const accent = redNightMode ? '#F34B6B' : theme.colors.accent;
   const surface = redNightMode ? '#310B14' : theme.colors.surface;
   const border = redNightMode ? '#6D1A2B' : theme.colors.border;
@@ -175,18 +249,8 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   }
 
   const notice = captureFeedback
-    ? {
-        message: captureFeedback,
-        busy: captureBusy || uploadRetryBusy,
-        ...(photoUploadPending ? { retry: retryPendingPhotos } : {}),
-      }
-    : photoUploadPending
-      ? {
-          message: 'Há uma foto salva no aparelho aguardando envio.',
-          busy: uploadRetryBusy,
-          retry: retryPendingPhotos,
-        }
-      : getGuideNotice({ cameraReady, cameraError, location, orientation, sky });
+    ? { message: captureFeedback, busy: captureBusy }
+    : getGuideNotice({ cameraReady, cameraError, location, orientation, sky });
 
   async function capturePhoto() {
     if (captureBusy || !photoCaptureEnabled) return;
@@ -203,13 +267,11 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
         longitude: location.location?.longitudeDegrees ?? null,
       });
       if (persistence.status === 'uploaded') {
-        setPhotoUploadPending(false);
         setCaptureFeedback(
           `${describeAppliedCapture(photo.metadata.parameters)} Foto salva no histórico.`,
         );
       } else {
-        setPhotoUploadPending(true);
-        setCaptureFeedback(uploadFailureMessage(persistence.failure));
+        setCaptureFeedback(`${describeAppliedCapture(photo.metadata.parameters)} Foto salva.`);
       }
     } catch (error) {
       setCaptureFeedback(cameraFailureMessage(error));
@@ -218,24 +280,65 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
     }
   }
 
-  async function retryPendingPhotos() {
-    if (uploadRetryBusy) return;
-    setUploadRetryBusy(true);
-    setCaptureFeedback('Tentando enviar fotos pendentes...');
-    try {
-      const result = await flushPendingAstroPhotos(accessToken);
-      setPhotoUploadPending(result.remainingCount > 0);
-      setCaptureFeedback(
-        result.remainingCount === 0
-          ? `${result.uploadedCount} foto${result.uploadedCount === 1 ? '' : 's'} enviada${result.uploadedCount === 1 ? '' : 's'} ao histórico.`
-          : uploadFailureMessage(result.lastFailure),
-      );
-    } catch {
-      setPhotoUploadPending(true);
-      setCaptureFeedback('Não foi possível verificar o envio. A foto continua salva no aparelho.');
-    } finally {
-      setUploadRetryBusy(false);
+  function applyCaptureProfile(profile: CaptureProfile) {
+    setSelectedProfileId(profile.id);
+    setAssistedCaptureEnabled(true);
+    setTipIndex(0);
+    setAssistedSettings((current) => ({
+      ...current,
+      ...(cameraCapabilities?.iso.status === 'supported'
+        ? {
+            iso: clamp(
+              profile.iso,
+              cameraCapabilities.iso.minimum ?? profile.iso,
+              cameraCapabilities.iso.maximum ?? profile.iso,
+            ),
+          }
+        : {}),
+      ...(cameraCapabilities?.exposureTime.status === 'supported'
+        ? {
+            exposureTimeSeconds: clamp(
+              profile.exposureTimeSeconds,
+              cameraCapabilities.exposureTime.minimum ?? profile.exposureTimeSeconds,
+              cameraCapabilities.exposureTime.maximum ?? profile.exposureTimeSeconds,
+            ),
+          }
+        : {}),
+      ...(cameraCapabilities?.exposureCompensation.status === 'supported'
+        ? {
+            exposureCompensationEv: clamp(
+              profile.exposureCompensationEv,
+              cameraCapabilities.exposureCompensation.minimum ?? profile.exposureCompensationEv,
+              cameraCapabilities.exposureCompensation.maximum ?? profile.exposureCompensationEv,
+            ),
+          }
+        : {}),
+    }));
+  }
+
+  function applyCaptureTip(action: CaptureTipAction) {
+    switch (action.kind) {
+      case 'profile':
+        applyCaptureProfile(findCaptureProfile(action.profileId));
+        return;
+      case 'exposure':
+        setAssistedSettings((current) => ({
+          ...current,
+          iso: action.iso,
+          exposureTimeSeconds: action.exposureTimeSeconds,
+        }));
+        break;
+      case 'exposure-compensation':
+        setAssistedSettings((current) => ({ ...current, exposureCompensationEv: action.value }));
+        break;
+      case 'zoom':
+        setCameraZoom(action.zoom);
+        break;
+      case 'level':
+        setLevelEnabled(true);
+        break;
     }
+    setTipIndex(0);
   }
 
   function togglePhotoCapture() {
@@ -248,8 +351,8 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
   function toggleAssistedCapture() {
     const enabled = !assistedCaptureEnabled;
     setAssistedCaptureEnabled(enabled);
-    setShowHint(enabled);
-    if (!enabled) setCaptureFeedback('Assistente de fotografia desativado.');
+    setTipIndex(0);
+    setCaptureFeedback(`Assistente de fotografia ${enabled ? 'ativado' : 'desativado'}.`);
   }
 
   return (
@@ -262,7 +365,11 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
         onCapabilitiesChange={setCameraCapabilities}
         onError={handleCameraError}
         onPreviewReady={handlePreviewReady}
-        zoom={1}
+        onZoomRangeChange={(range) => {
+          setCameraZoomRange(range);
+          if (range) setCameraZoom((current) => clamp(current, range.minZoom, range.maxZoom));
+        }}
+        zoom={cameraZoom}
       />
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.cameraShade]} />
       {redNightMode ? (
@@ -270,7 +377,7 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
       ) : null}
 
       <SafeAreaView edges={['top']} className="flex-1">
-        <View className="flex-row items-start gap-3 px-4 pt-3">
+        <View className="flex-row items-center gap-2 px-4 pt-3">
           <CircleButton
             accessibilityLabel="Voltar ao início"
             color={accent}
@@ -278,8 +385,8 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
             onPress={onClose}
           />
           <View
-            className="h-11 flex-1 flex-row items-center rounded-pill border px-4"
-            style={{ backgroundColor: surface, borderColor: border }}
+            className="h-11 flex-1 flex-row items-center rounded-pill px-4"
+            style={{ backgroundColor: 'rgba(17, 24, 43, 0.82)' }}
           >
             <Lucide color={theme.colors.muted} name="search" size={16} />
             <TextInput
@@ -291,61 +398,111 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
               value={query}
             />
           </View>
-          <View className="items-center gap-2">
-            <CircleButton
+          <CircleButton
+            accessibilityLabel={toolsOpen ? 'Fechar configurações' : 'Abrir configurações'}
+            active={toolsOpen}
+            color={accent}
+            icon="settings"
+            onPress={() => setToolsOpen((value) => !value)}
+          />
+          <CircleButton
+            accessibilityLabel="Mostrar dica de uso"
+            color={accent}
+            icon="circle-help"
+            onPress={() => setShowHint((value) => !value)}
+          />
+        </View>
+
+        {showHint || notice ? (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(150)}
+            className="mt-2 max-w-[86%] flex-row items-center gap-2 self-center rounded-pill px-3 py-1.5"
+            style={{ backgroundColor: 'rgba(8, 11, 20, 0.72)' }}
+          >
+            {!showHint && notice?.busy ? (
+              <ActivityIndicator color={accent} size="small" />
+            ) : (
+              <Lucide color={accent} name="info" size={13} />
+            )}
+            <Text
+              accessibilityLiveRegion="polite"
+              className="shrink font-body text-[11px] text-ink"
+              numberOfLines={2}
+            >
+              {showHint
+                ? 'Aponte para o céu e toque em um astro para ver detalhes'
+                : notice?.message}
+            </Text>
+          </Animated.View>
+        ) : null}
+
+        {photoCaptureEnabled && cameraZoomRange ? (
+          <View
+            className="absolute left-3 gap-1 rounded-pill p-1"
+            style={{ backgroundColor: 'rgba(17, 24, 43, 0.72)', top: '40%' }}
+          >
+            {zoomStops(cameraZoomRange).map((zoom) => {
+              const selected = Math.abs(cameraZoom - zoom) < 0.01;
+              return (
+                <Pressable
+                  key={zoom}
+                  accessibilityLabel={`Zoom ${formatZoom(zoom)}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  className="h-11 w-11 items-center justify-center rounded-full active:opacity-75"
+                  onPress={() => setCameraZoom(zoom)}
+                  style={{ backgroundColor: selected ? accent : 'transparent' }}
+                >
+                  <Text
+                    className="font-label text-xs"
+                    style={{ color: selected ? theme.colors.background : theme.colors.text }}
+                  >
+                    {formatZoom(zoom)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {toolsOpen ? (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(150)}
+            className="absolute right-3 top-[76px] gap-1 rounded-card p-1.5"
+            style={{ backgroundColor: 'rgba(17, 24, 43, 0.92)', elevation: 8 }}
+          >
+            <CameraToolButton
+              accessibilityLabel={skyOverlayEnabled ? 'Ocultar mapa do céu' : 'Mostrar mapa do céu'}
+              active={skyOverlayEnabled}
+              color={accent}
+              icon="sparkles"
+              label="Céu"
+              onPress={() => setSkyOverlayEnabled((value) => !value)}
+            />
+            <CameraToolButton
               accessibilityLabel={
                 redNightMode ? 'Desativar modo noturno vermelho' : 'Ativar modo noturno vermelho'
               }
+              active={redNightMode}
               color={accent}
               icon="moon"
+              label="Noturno"
               onPress={() => setRedNightMode((value) => !value)}
             />
-            <View className="relative">
-              <CircleButton
-                accessibilityLabel="Mostrar dica de uso"
-                color={accent}
-                icon="circle-help"
-                onPress={() => setShowHint((value) => !value)}
-              />
-              {showHint ? (
-                <Animated.View
-                  entering={FadeIn.duration(150)}
-                  exiting={FadeOut.duration(150)}
-                  pointerEvents="none"
-                  className="absolute top-0 h-11 flex-row items-center gap-2 rounded-control border px-3"
-                  style={{
-                    backgroundColor: surface,
-                    borderColor: border,
-                    elevation: 8,
-                    right: 48,
-                    width: Math.min(252, windowWidth - 72),
-                    zIndex: 20,
-                  }}
-                >
-                  <Lucide
-                    color={accent}
-                    name={assistedCaptureEnabled ? 'sparkles' : 'info'}
-                    size={14}
-                  />
-                  <Text className="flex-1 font-body text-[11px] text-ink" numberOfLines={1}>
-                    {assistedCaptureEnabled && assistedHint
-                      ? assistedHint
-                      : 'Aponte para o céu e mova lentamente'}
-                  </Text>
-                </Animated.View>
-              ) : null}
-            </View>
-            <CircleButton
+            <CameraToolButton
               accessibilityLabel={
                 photoCaptureEnabled ? 'Desativar captura de fotos' : 'Ativar captura de fotos'
               }
               active={photoCaptureEnabled}
               color={accent}
               icon="camera"
+              label="Câmera"
               onPress={togglePhotoCapture}
             />
             {photoCaptureEnabled ? (
-              <CircleButton
+              <CameraToolButton
                 accessibilityLabel={
                   assistedCaptureEnabled
                     ? 'Desativar assistente de fotografia'
@@ -353,42 +510,55 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
                 }
                 active={assistedCaptureEnabled}
                 color={accent}
-                icon="sparkles"
+                icon="wand-sparkles"
+                label="Assistente"
                 onPress={toggleAssistedCapture}
               />
             ) : null}
-          </View>
-        </View>
-
-        {notice ? (
-          <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
-            <View
-              className="mx-4 mt-3 flex-row items-center gap-2 rounded-control border px-3 py-2"
-              style={{ backgroundColor: surface, borderColor: border }}
-            >
-              {notice.busy ? (
-                <ActivityIndicator color={accent} size="small" />
-              ) : (
-                <Lucide color={accent} name="info" size={15} />
-              )}
-              <Text
-                accessibilityLiveRegion="polite"
-                className="flex-1 font-body text-[11px] leading-4 text-ink"
-              >
-                {notice.message}
-              </Text>
-              {notice.retry ? (
-                <Pressable
-                  accessibilityLabel="Tentar enviar foto novamente"
-                  accessibilityRole="button"
-                  className="p-1 active:opacity-70"
-                  onPress={notice.retry}
-                >
-                  <Lucide color={accent} name="refresh-cw" size={16} />
-                </Pressable>
-              ) : null}
-            </View>
+            {photoCaptureEnabled ? (
+              <CameraToolButton
+                accessibilityLabel={levelEnabled ? 'Ocultar nível' : 'Mostrar nível'}
+                active={levelEnabled}
+                color={accent}
+                icon="move-horizontal"
+                label="Nível"
+                onPress={() => setLevelEnabled((value) => !value)}
+              />
+            ) : null}
           </Animated.View>
+        ) : null}
+
+        {photoCaptureEnabled && levelEnabled ? (
+          <View
+            className="absolute self-center flex-row items-center gap-2 rounded-pill border px-3 py-2"
+            style={{
+              top: '57%',
+              backgroundColor: surface,
+              borderColor: border,
+            }}
+          >
+            <View
+              className="h-4 w-12 justify-center"
+              style={{
+                transform: [{ rotate: `${orientation.orientation?.rollDegrees ?? 0}deg` }],
+              }}
+            >
+              <View
+                className="h-px w-full"
+                style={{
+                  backgroundColor:
+                    orientation.orientation && Math.abs(orientation.orientation.rollDegrees) < 2
+                      ? theme.colors.info
+                      : accent,
+                }}
+              />
+            </View>
+            <Text className="font-label text-[10px] text-ink">
+              {orientation.orientation
+                ? `${Math.round(orientation.orientation.rollDegrees)}°`
+                : 'Nível indisponível'}
+            </Text>
+          </View>
         ) : null}
 
         <View pointerEvents="none" style={styles.reticle}>
@@ -397,32 +567,88 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
           <View style={[styles.reticleVertical, { backgroundColor: accent }]} />
         </View>
 
-        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-          {projectedObjects.map(({ celestialObject, x, y }) => (
-            <Pressable
-              key={celestialObject.id}
-              accessibilityLabel={`${celestialObject.object.name}, altitude ${Math.round(celestialObject.altitudeDegrees)} graus`}
-              className="absolute items-center active:opacity-70"
-              onPress={() => {
-                setSelectedId(celestialObject.id);
-                setDetailsExpanded(false);
-              }}
-              style={{ left: x - 48, top: y - 14, width: 96 }}
-            >
-              <View
-                className="h-3 w-3 rounded-full border-2"
-                style={{ backgroundColor: accent, borderColor: theme.colors.text }}
-              />
-              <View
-                className="mt-1 rounded-pill border px-2 py-1"
-                style={{ backgroundColor: surface, borderColor: border }}
-              >
-                <Text className="font-label text-[10px] text-ink" numberOfLines={1}>
-                  {celestialObject.object.name}
-                </Text>
-              </View>
-            </Pressable>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {projectedFigures.map((figure) => (
+            <View key={figure.id} style={StyleSheet.absoluteFill}>
+              {figure.segments.map((segment) => {
+                const length = Math.hypot(segment.x2 - segment.x1, segment.y2 - segment.y1);
+                const angle = Math.atan2(segment.y2 - segment.y1, segment.x2 - segment.x1);
+                return (
+                  <View
+                    key={segment.key}
+                    style={[
+                      styles.constellationLine,
+                      {
+                        backgroundColor: accent,
+                        left: (segment.x1 + segment.x2) / 2 - length / 2,
+                        top: (segment.y1 + segment.y2) / 2,
+                        width: length,
+                        transform: [{ rotate: `${angle}rad` }],
+                      },
+                    ]}
+                  />
+                );
+              })}
+              {figure.stars.map((figureStar) => {
+                const size = clamp(6.5 - figureStar.magnitude * 1.3, 3, 7);
+                return (
+                  <View
+                    key={figureStar.key}
+                    style={[
+                      styles.constellationStar,
+                      {
+                        left: figureStar.x - size / 2,
+                        top: figureStar.y - size / 2,
+                        width: size,
+                        height: size,
+                        borderRadius: size / 2,
+                        shadowColor: accent,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
           ))}
+        </View>
+
+        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+          {skyOverlayEnabled
+            ? projectedObjects.map(({ celestialObject, x, y }) => (
+                <Pressable
+                  key={celestialObject.id}
+                  accessibilityLabel={`${celestialObject.object.name}, altitude ${Math.round(celestialObject.altitudeDegrees)} graus`}
+                  className="absolute items-center active:opacity-70"
+                  onPress={() => {
+                    setSelectedId(celestialObject.id);
+                    setDetailsExpanded(false);
+                  }}
+                  style={{ left: x - 56, top: y - 14, width: 112 }}
+                >
+                  <CelestialMarker accent={accent} object={celestialObject.object} />
+                  <View
+                    className="mt-1 rounded-pill px-2 py-0.5"
+                    style={{ backgroundColor: 'rgba(8, 11, 20, 0.55)' }}
+                  >
+                    <Text
+                      className={
+                        celestialObject.object.type === 'constellation'
+                          ? 'font-label text-[10px] uppercase tracking-[1.5px]'
+                          : 'font-label text-[10px] text-ink'
+                      }
+                      numberOfLines={1}
+                      style={
+                        celestialObject.object.type === 'constellation'
+                          ? { color: accent }
+                          : undefined
+                      }
+                    >
+                      {celestialObject.object.name}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))
+            : null}
         </View>
 
         {selectedObject ? (
@@ -441,193 +667,334 @@ export function SkyGuidePage({ accessToken, onClose }: SkyGuidePageProps) {
           </View>
         ) : null}
 
-        {selectedObject && detailsExpanded ? (
-          <View
-            className="absolute left-3 right-3 gap-3 rounded-panel border p-4"
-            style={{
-              backgroundColor: surface,
-              borderColor: border,
-              bottom: 96 + insets.bottom,
-            }}
-          >
-            <View className="flex-row items-start">
-              <View className="flex-1 gap-1">
-                <Text className="font-display text-xl" style={{ color: accent }}>
-                  {selectedObject.name}
-                </Text>
-                <Text className="font-body text-[11px] text-muted">
-                  {objectTypeLabel(selectedObject.type)} · altitude{' '}
-                  {Math.round(selectedObject.horizontal.altitudeDegrees)}° · azimute{' '}
-                  {Math.round(selectedObject.horizontal.azimuthDegrees)}°
-                </Text>
-              </View>
-              <Pressable
-                accessibilityLabel="Fechar detalhes"
-                className="p-2"
-                onPress={() => {
-                  setSelectedId(null);
-                  setDetailsExpanded(false);
-                }}
-              >
-                <Lucide color={theme.colors.muted} name="x" size={18} />
-              </Pressable>
-            </View>
-            <View className="gap-1 rounded-control bg-surface-2 px-3 py-2">
-              {planning.loading ? (
-                <View className="flex-row items-center gap-2">
-                  <ActivityIndicator color={accent} size="small" />
-                  <Text className="font-body text-[11px] text-muted">
-                    Calculando melhor janela nas próximas 24 horas...
-                  </Text>
-                </View>
-              ) : planning.error ? (
-                <View className="flex-row items-center gap-2">
-                  <Text className="flex-1 font-body text-[11px] text-muted">{planning.error}</Text>
-                  <Pressable accessibilityRole="button" onPress={planning.refresh}>
-                    <Text className="font-label text-[10px]" style={{ color: accent }}>
-                      Tentar novamente
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : planning.recommendation ? (
-                <>
-                  <Text className="font-label text-[11px]" style={{ color: accent }}>
-                    {recommendationTitle(planning.recommendation)}
-                  </Text>
-                  <Text className="font-body text-[10px] leading-4 text-muted">
-                    {planning.recommendation.summary}
-                  </Text>
-                </>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        {photoCaptureEnabled ? (
-          <View
-            className="absolute w-full flex-row items-center justify-center gap-3"
-            style={{ bottom: 16 + insets.bottom }}
-          >
-            {manualExposureAvailable && manualExposurePlan && cameraCapabilities ? (
-              <QuickSettingButton
-                label="ISO"
-                value={`${Math.round(manualExposurePlan.iso)}`}
-                onPress={() =>
-                  setAssistedSettings((current) => ({
-                    ...current,
-                    iso: nextPreset(
-                      manualExposurePlan.iso,
-                      cameraCapabilities.iso.minimum ?? manualExposurePlan.iso,
-                      cameraCapabilities.iso.maximum ?? manualExposurePlan.iso,
-                      [100, 200, 400, 800, 1600, 3200],
-                    ),
-                  }))
-                }
-              />
-            ) : null}
-            <Pressable
-              accessibilityLabel="Capturar foto do céu"
-              accessibilityRole="button"
-              accessibilityState={{ busy: captureBusy, disabled: !cameraReady || captureBusy }}
-              className="h-[68px] w-[68px] items-center justify-center rounded-full border-2 border-ink bg-canvas/60 active:opacity-75"
-              disabled={!cameraReady || captureBusy}
-              onPress={() => void capturePhoto()}
+        <View className="mt-auto gap-2">
+          {selectedObject && detailsExpanded ? (
+            <View
+              className="mx-3 gap-3 rounded-panel p-4"
+              style={{ backgroundColor: 'rgba(17, 24, 43, 0.94)' }}
             >
-              {captureBusy ? (
-                <ActivityIndicator color={accent} />
-              ) : (
-                <View
-                  className="h-[52px] w-[52px] rounded-full"
-                  style={{ backgroundColor: accent }}
-                />
-              )}
-            </Pressable>
-            {manualExposureAvailable && manualExposurePlan && cameraCapabilities ? (
-              <QuickSettingButton
-                label="Obturador"
-                value={formatShutter(manualExposurePlan.exposureTimeSeconds)}
-                onPress={() =>
-                  setAssistedSettings((current) => ({
-                    ...current,
-                    exposureTimeSeconds: nextPreset(
-                      manualExposurePlan.exposureTimeSeconds,
-                      cameraCapabilities.exposureTime.minimum ??
-                        manualExposurePlan.exposureTimeSeconds,
-                      cameraCapabilities.exposureTime.maximum ??
-                        manualExposurePlan.exposureTimeSeconds,
-                      [1 / 250, 1 / 125, 1 / 60, 1 / 30, 1 / 15, 1 / 8, 1 / 4, 1 / 2, 1],
-                    ),
-                  }))
-                }
+              <View className="flex-row items-start">
+                <View className="flex-1 gap-1">
+                  <Text className="font-display text-xl" style={{ color: accent }}>
+                    {selectedObject.name}
+                  </Text>
+                  <Text className="font-body text-[11px] text-muted">
+                    {objectTypeLabel(selectedObject.type)} · altitude{' '}
+                    {Math.round(selectedObject.horizontal.altitudeDegrees)}° · azimute{' '}
+                    {Math.round(selectedObject.horizontal.azimuthDegrees)}°
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityLabel="Fechar detalhes"
+                  className="p-2"
+                  onPress={() => {
+                    setSelectedId(null);
+                    setDetailsExpanded(false);
+                  }}
+                >
+                  <Lucide color={theme.colors.muted} name="x" size={18} />
+                </Pressable>
+              </View>
+              <View className="gap-1 rounded-control bg-surface-2 px-3 py-2">
+                {planning.loading ? (
+                  <View className="flex-row items-center gap-2">
+                    <ActivityIndicator color={accent} size="small" />
+                    <Text className="font-body text-[11px] text-muted">
+                      Calculando melhor janela nas próximas 24 horas...
+                    </Text>
+                  </View>
+                ) : planning.error ? (
+                  <View className="flex-row items-center gap-2">
+                    <Text className="flex-1 font-body text-[11px] text-muted">
+                      {planning.error}
+                    </Text>
+                    <Pressable accessibilityRole="button" onPress={planning.refresh}>
+                      <Text className="font-label text-[10px]" style={{ color: accent }}>
+                        Tentar novamente
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : planning.recommendation ? (
+                  <>
+                    <Text className="font-label text-[11px]" style={{ color: accent }}>
+                      {recommendationTitle(planning.recommendation)}
+                    </Text>
+                    <Text className="font-body text-[10px] leading-4 text-muted">
+                      {planning.recommendation.summary}
+                    </Text>
+                  </>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
+          {photoCaptureEnabled && assistedCaptureEnabled && currentTip ? (
+            <Animated.View
+              key={currentTip.id}
+              entering={FadeIn.duration(180)}
+              className="mx-3 flex-row items-center gap-2 rounded-card py-1.5 pl-3 pr-1.5"
+              style={{ backgroundColor: 'rgba(17, 24, 43, 0.92)' }}
+            >
+              <Lucide
+                color={currentTip.severity === 'warning' ? theme.colors.event : accent}
+                name={tipIcons[currentTip.topic]}
+                size={15}
               />
-            ) : null}
-          </View>
-        ) : null}
+              <Pressable
+                accessibilityHint="Toque para ver o motivo da dica"
+                accessibilityLabel={`${currentTip.title}. ${currentTip.detail}`}
+                accessibilityRole="button"
+                className="flex-1 py-1"
+                onPress={() => setTipExpanded((value) => !value)}
+              >
+                <Text
+                  accessibilityLiveRegion="polite"
+                  className="font-label text-[11px] text-ink"
+                  numberOfLines={tipExpanded ? 2 : 1}
+                >
+                  {currentTip.title}
+                </Text>
+                {tipExpanded ? (
+                  <Text className="mt-0.5 font-body text-[10px] leading-4 text-muted">
+                    {currentTip.detail}
+                  </Text>
+                ) : null}
+              </Pressable>
+              {currentTip.action ? (
+                <Pressable
+                  accessibilityRole="button"
+                  className="rounded-pill px-3 py-1.5 active:opacity-75"
+                  onPress={() => currentTip.action && applyCaptureTip(currentTip.action.value)}
+                  style={{ backgroundColor: accent }}
+                >
+                  <Text
+                    className="font-label text-[10px]"
+                    style={{ color: theme.colors.background }}
+                  >
+                    {currentTip.action.label}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {captureTips.length > 1 ? (
+                <Pressable
+                  accessibilityLabel={`Próxima dica (${(tipIndex % captureTips.length) + 1} de ${captureTips.length})`}
+                  accessibilityRole="button"
+                  className="h-8 w-8 items-center justify-center rounded-full active:opacity-70"
+                  onPress={() => {
+                    setTipExpanded(false);
+                    setTipIndex((value) => value + 1);
+                  }}
+                >
+                  <Lucide color={theme.colors.muted} name="chevron-right" size={16} />
+                </Pressable>
+              ) : null}
+            </Animated.View>
+          ) : null}
+
+          {photoCaptureEnabled ? (
+            <View
+              className="gap-3 rounded-t-panel px-4 pt-3"
+              style={{
+                backgroundColor: 'rgba(8, 11, 20, 0.88)',
+                paddingBottom: insets.bottom + 8,
+              }}
+            >
+              <View className="flex-row rounded-pill p-1" style={{ backgroundColor: surface }}>
+                {captureProfiles.map((profile) => {
+                  const selected = selectedProfileId === profile.id;
+                  return (
+                    <Pressable
+                      key={profile.id}
+                      accessibilityHint={profile.description}
+                      accessibilityLabel={`Perfil ${profile.label}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      className="h-9 flex-1 flex-row items-center justify-center gap-1.5 rounded-pill active:opacity-75"
+                      onPress={() => applyCaptureProfile(profile)}
+                      style={{ backgroundColor: selected ? accent : 'transparent' }}
+                    >
+                      <Lucide
+                        color={selected ? theme.colors.background : theme.colors.muted}
+                        name={profileIcons[profile.id]}
+                        size={13}
+                      />
+                      <Text
+                        className="font-label text-[11px]"
+                        numberOfLines={1}
+                        style={{ color: selected ? theme.colors.background : theme.colors.text }}
+                      >
+                        {profileShortLabels[profile.id]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <CaptureControlsPanel
+                accent={accent}
+                capabilities={cameraCapabilities}
+                enabled={assistedCaptureEnabled}
+                plan={assistedPlan}
+                onSettingsChange={(settings) => {
+                  setAssistedCaptureEnabled(true);
+                  setAssistedSettings((current) => ({ ...current, ...settings }));
+                }}
+              />
+
+              <View className="items-center">
+                <Pressable
+                  accessibilityLabel="Capturar foto do céu"
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: captureBusy, disabled: !cameraReady || captureBusy }}
+                  className="h-[72px] w-[72px] items-center justify-center rounded-full border-2 active:opacity-75"
+                  disabled={!cameraReady || captureBusy}
+                  onPress={() => void capturePhoto()}
+                  style={{ borderColor: accent }}
+                >
+                  {captureBusy ? (
+                    <ActivityIndicator color={accent} />
+                  ) : (
+                    <View
+                      className="h-[58px] w-[58px] rounded-full"
+                      style={{ backgroundColor: accent }}
+                    />
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={{ height: insets.bottom + 8 }} />
+          )}
+        </View>
       </SafeAreaView>
     </View>
   );
 }
 
-function QuickSettingButton({
+const planetColors: Record<string, string> = {
+  mercury: '#C9C1B6',
+  venus: '#F4DFA8',
+  mars: '#E2795B',
+  jupiter: '#E6C79C',
+  saturn: '#EBD69F',
+  uranus: '#A5E3E8',
+  neptune: '#7D93F2',
+};
+
+function CelestialMarker({ accent, object }: { accent: string; object: SkyGuideObjectPosition }) {
+  if (object.type === 'constellation') {
+    return (
+      <View style={styles.markerBox}>
+        <Lucide color={accent} name="sparkles" size={14} />
+      </View>
+    );
+  }
+
+  if (object.type === 'moon') {
+    return (
+      <View style={styles.markerBox}>
+        <View
+          style={[
+            styles.markerHalo,
+            { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F2EEE3' },
+          ]}
+        />
+        <View
+          className="items-center justify-center"
+          style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#ECE8DC' }}
+        >
+          <Lucide color="#8D8A82" name="moon" size={12} />
+        </View>
+      </View>
+    );
+  }
+
+  if (object.type === 'planet') {
+    const color = planetColors[object.id] ?? '#E6C79C';
+    return (
+      <View style={styles.markerBox}>
+        <View
+          style={[
+            styles.markerHalo,
+            { width: 24, height: 24, borderRadius: 12, backgroundColor: color },
+          ]}
+        />
+        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color }} />
+        {object.id === 'saturn' ? (
+          <View style={[styles.saturnRing, { borderColor: color }]} />
+        ) : null}
+      </View>
+    );
+  }
+
+  const magnitude = object.magnitude ?? 2;
+  const core = clamp(7 - magnitude * 1.6, 3, 8);
+  const ray = core * 3.2;
+  return (
+    <View style={styles.markerBox}>
+      <View style={[styles.starRayHorizontal, { width: ray, backgroundColor: '#DCE6FF' }]} />
+      <View style={[styles.starRayVertical, { height: ray, backgroundColor: '#DCE6FF' }]} />
+      <View
+        style={[
+          styles.constellationStar,
+          {
+            position: 'relative',
+            width: core,
+            height: core,
+            borderRadius: core / 2,
+            shadowColor: accent,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+function CameraToolButton({
+  accessibilityLabel,
+  active,
+  color,
+  icon,
   label,
-  value,
   onPress,
 }: {
+  accessibilityLabel: string;
+  active: boolean;
+  color: string;
+  icon: LucideIconName;
   label: string;
-  value: string;
   onPress(): void;
 }) {
   return (
     <Pressable
-      accessibilityLabel={`${label}: ${value}. Toque para alterar`}
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      className="h-12 min-w-[70px] items-center justify-center rounded-control border border-border bg-surface px-2 active:opacity-75"
+      accessibilityState={{ selected: active }}
+      className="h-[58px] w-[58px] items-center justify-center gap-1 rounded-control active:opacity-75"
       onPress={onPress}
+      style={{ backgroundColor: active ? theme.colors.surface2 : 'transparent' }}
     >
-      <Text className="font-body text-[9px] text-muted">{label}</Text>
-      <Text className="font-label text-[11px] text-ink">{value}</Text>
+      <Lucide color={active ? color : theme.colors.muted} name={icon} size={18} />
+      <Text className="font-body text-[9px] text-ink">{label}</Text>
     </Pressable>
   );
 }
 
-function nextPreset(current: number, minimum: number, maximum: number, presets: number[]): number {
-  const values = [
-    minimum,
-    ...presets.filter((value) => value > minimum && value < maximum),
-    maximum,
-  ]
-    .filter((value, index, all) => all.indexOf(value) === index)
-    .sort((left, right) => left - right);
-  const currentIndex = values.findIndex((value) => Math.abs(value - current) < 0.000001);
-  return values[(currentIndex + 1) % values.length] ?? current;
+// Mirrors native camera apps: telephoto (3x), standard (1x) and the widest lens available (≥ 0.5x).
+function zoomStops(range: CameraZoomRange): number[] {
+  return [3, 1, Math.max(0.5, range.minZoom)]
+    .map((zoom) => clamp(zoom, range.minZoom, range.maxZoom))
+    .filter(
+      (zoom, index, values) => values.findIndex((value) => Math.abs(value - zoom) < 0.01) === index,
+    );
 }
 
-function formatShutter(seconds: number | null): string {
-  if (seconds === null) return 'Auto';
-  if (seconds >= 1) return `${Number(seconds.toFixed(1))}s`;
-  return `1/${Math.round(1 / seconds)}`;
+function formatZoom(value: number): string {
+  return `${Number(value.toFixed(1)).toLocaleString('pt-BR')}x`;
 }
 
-function uploadFailureMessage(failure: AstroPhotoUploadFailure | null): string {
-  if (failure?.kind === 'http') {
-    const operation =
-      failure.message === 'Observation metadata could not be saved'
-        ? ' ao salvar a observação'
-        : failure.message === 'Astrophoto could not be uploaded'
-          ? ' ao enviar o arquivo para o Storage'
-          : failure.message === 'Astrophoto metadata could not be saved'
-            ? ' ao salvar os metadados da foto'
-            : '';
-    const code = failure.code ? ` (${failure.code})` : '';
-    return `API HTTP ${failure.status}${code}${operation}. A foto permanece no aparelho.`;
-  }
-  return 'A API não respondeu. A foto permanece no aparelho; tente novamente.';
-}
-
-function isManualExposurePlan(
-  plan: AssistedCapturePlan | null,
-): plan is AssistedCapturePlan & { iso: number; exposureTimeSeconds: number } {
-  return plan?.exposureMode === 'manual' && plan.iso !== null && plan.exposureTimeSeconds !== null;
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 function CircleButton({
@@ -640,7 +1007,7 @@ function CircleButton({
   accessibilityLabel: string;
   active?: boolean;
   color: string;
-  icon: 'chevron-left' | 'moon' | 'circle-help' | 'camera' | 'sparkles';
+  icon: LucideIconName;
   onPress(): void;
 }) {
   return (
@@ -783,6 +1150,27 @@ const styles = StyleSheet.create({
   },
   reticleHorizontal: { position: 'absolute', width: 94, height: 1, opacity: 0.72 },
   reticleVertical: { position: 'absolute', width: 1, height: 94, opacity: 0.72 },
+  constellationLine: { position: 'absolute', height: 1, opacity: 0.55 },
+  constellationStar: {
+    position: 'absolute',
+    backgroundColor: '#F5F7FB',
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
+  },
+  markerBox: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  markerHalo: { position: 'absolute', opacity: 0.28 },
+  starRayHorizontal: { position: 'absolute', height: 1, opacity: 0.8 },
+  starRayVertical: { position: 'absolute', width: 1, opacity: 0.8 },
+  saturnRing: {
+    position: 'absolute',
+    width: 26,
+    height: 9,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    transform: [{ rotate: '-20deg' }],
+  },
   objectLabel: {
     position: 'absolute',
     left: 0,

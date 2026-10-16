@@ -1,4 +1,4 @@
-export { AssistedCaptureSheet } from './ui/AssistedCaptureSheet.tsx';
+export { CaptureControlsPanel } from './ui/CaptureControlsPanel.tsx';
 export {
   CameraCaptureView,
   type CameraCaptureHandle,
@@ -11,6 +11,7 @@ export {
   createAssistedCapturePlan,
   createAstroPhotoMetadata,
   describeAppliedCapture,
+  WHITE_BALANCE_RANGE_KELVIN,
   type AppliedCaptureParameters,
   type AssistedCapturePlan,
   type AssistedCaptureRecommendation,
@@ -28,4 +29,14 @@ export {
   type CameraNumericCapability,
   type CameraNumericUnit,
 } from './model/camera-capabilities.ts';
+export {
+  buildCaptureTips,
+  captureProfiles,
+  findCaptureProfile,
+  type CaptureProfile,
+  type CaptureProfileId,
+  type CaptureTip,
+  type CaptureTipAction,
+  type CaptureTipTopic,
+} from './model/capture-tips.ts';
 export { useCameraAccess } from './model/use-camera-access.ts';
