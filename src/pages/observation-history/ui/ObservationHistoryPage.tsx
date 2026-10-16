@@ -2,9 +2,9 @@ import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
 import { memo, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   buildPhotoGallery,
+  removeGalleryThumbnail,
+  useGalleryThumbnails,
   useObservationHistory,
   type GalleryGrouping,
   type GalleryPhoto,
@@ -22,6 +24,7 @@ import {
 } from '../../../features/observation-history/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 import { PhotoViewer } from './PhotoViewer.tsx';
+import { useImageLoadStatus } from './use-image-load-status.ts';
 
 const GRID_COLUMNS = 3;
 const GRID_GAP = 2;
@@ -53,14 +56,25 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
   const [grouping, setGrouping] = useState<GalleryGrouping>('day');
   const [category, setCategory] = useState<Category>('all');
   const [viewerPhotoId, setViewerPhotoId] = useState<string | null>(null);
-  const { observations, loading, loadingMore, hasMore, error, refresh, loadMore } =
-    useObservationHistory(accessToken);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const {
+    observations,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    refresh,
+    loadMore,
+    removePhoto,
+    removeObservation,
+  } = useObservationHistory(accessToken);
 
   const gallery = useMemo(
     () => buildPhotoGallery(observations, { grouping, category }),
     [category, grouping, observations],
   );
   const rows = useMemo(() => toRows(gallery.sections), [gallery.sections]);
+  const thumbnails = useGalleryThumbnails(gallery.photos);
   // FlatList counts ListHeaderComponent as index 0, so section headers start at index 1.
   const stickyHeaderIndices = useMemo(
     () => rows.flatMap((row, index) => (row.type === 'header' ? [index + 1] : [])),
@@ -71,12 +85,51 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
     ? gallery.photos.findIndex((photo) => photo.id === viewerPhotoId)
     : -1;
   const openPhoto = useCallback((photoId: string) => setViewerPhotoId(photoId), []);
+  const requestDelete = useCallback(
+    (photo: GalleryPhoto, nextPhotoId: string | null = null) => {
+      const hasPhoto = photo.photo !== null;
+      Alert.alert(
+        hasPhoto ? 'Excluir foto?' : 'Excluir observação?',
+        hasPhoto
+          ? 'A foto será apagada da sua galeria e do armazenamento. Esta ação não pode ser desfeita.'
+          : 'Esta observação não tem foto enviada e será removida da sua galeria.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Excluir',
+            style: 'destructive',
+            onPress: () => {
+              setDeletingPhotoId(photo.id);
+              void (async () => {
+                try {
+                  if (photo.photo) {
+                    await removePhoto(photo.observation.id, photo.photo.id);
+                    void removeGalleryThumbnail(photo.photo.id);
+                  } else await removeObservation(photo.observation.id);
+                  setViewerPhotoId((current) => (current === photo.id ? nextPhotoId : current));
+                } catch {
+                  Alert.alert(
+                    'Não foi possível excluir',
+                    'Verifique sua conexão e tente novamente.',
+                  );
+                } finally {
+                  setDeletingPhotoId(null);
+                }
+              })();
+            },
+          },
+        ],
+      );
+    },
+    [removeObservation, removePhoto],
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
       <FlatList
         contentContainerClassName="flex-grow pb-8"
         data={rows}
+        extraData={`${deletingPhotoId ?? ''}:${thumbnails.version}`}
         initialNumToRender={12}
         keyExtractor={(row) => row.key}
         maxToRenderPerBatch={8}
@@ -84,7 +137,6 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
         onEndReachedThreshold={0.6}
         onRefresh={() => void refresh()}
         refreshing={loading && observations.length > 0}
-        removeClippedSubviews={Platform.OS === 'android'}
         stickyHeaderIndices={stickyHeaderIndices}
         windowSize={7}
         ListHeaderComponent={
@@ -215,7 +267,15 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
           ) : (
             <View className="flex-row" style={{ gap: GRID_GAP, marginBottom: GRID_GAP }}>
               {item.photos.map((photo) => (
-                <GalleryTile key={photo.id} photo={photo} size={tileSize} onOpen={openPhoto} />
+                <GalleryTile
+                  key={photo.id}
+                  deleting={deletingPhotoId === photo.id}
+                  imageUri={thumbnails.uriFor(photo)}
+                  photo={photo}
+                  size={tileSize}
+                  onDelete={requestDelete}
+                  onOpen={openPhoto}
+                />
               ))}
             </View>
           )
@@ -224,9 +284,12 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
 
       {viewerIndex >= 0 ? (
         <PhotoViewer
+          key={viewerPhotoId}
+          deleting={deletingPhotoId !== null}
           initialIndex={viewerIndex}
           photos={gallery.photos}
           onClose={() => setViewerPhotoId(null)}
+          onDelete={requestDelete}
         />
       ) : null}
     </SafeAreaView>
@@ -234,33 +297,54 @@ export function ObservationHistoryPage({ accessToken }: ObservationHistoryPagePr
 }
 
 const GalleryTile = memo(function GalleryTile({
+  deleting,
+  imageUri,
   photo,
   size,
+  onDelete,
   onOpen,
 }: {
+  deleting: boolean;
+  imageUri: string | null;
   photo: GalleryPhoto;
   size: number;
+  onDelete(photo: GalleryPhoto): void;
   onOpen(photoId: string): void;
 }) {
-  const [failed, setFailed] = useState(false);
+  const { status, onError } = useImageLoadStatus(imageUri ?? photo.uri);
+  const showImage = photo.uri !== null && status !== 'failed';
   return (
     <Pressable
+      accessibilityActions={[{ name: 'longpress', label: 'Excluir' }]}
       accessibilityLabel={`Abrir ${photo.observation.title}`}
       accessibilityRole="imagebutton"
       className="active:opacity-80"
+      delayLongPress={400}
+      disabled={deleting}
+      onAccessibilityAction={() => onDelete(photo)}
+      onLongPress={() => onDelete(photo)}
       onPress={() => onOpen(photo.id)}
       style={{ width: size, height: size }}
     >
-      {photo.uri && !failed ? (
-        <Image
-          className="bg-surface-2"
-          fadeDuration={120}
-          onError={() => setFailed(true)}
-          resizeMethod="resize"
-          resizeMode="cover"
-          source={{ uri: photo.uri }}
-          style={{ width: size, height: size }}
-        />
+      {showImage ? (
+        <>
+          {/* Rendered behind the image: visible while loading, covered once it appears. */}
+          <View
+            className="absolute items-center justify-center bg-surface-2"
+            style={{ width: size, height: size }}
+          >
+            <ActivityIndicator color={theme.colors.muted} size="small" />
+          </View>
+          {imageUri ? (
+            <Image
+              key={imageUri}
+              onError={onError}
+              resizeMode="cover"
+              source={{ uri: imageUri }}
+              style={{ width: size, height: size }}
+            />
+          ) : null}
+        </>
       ) : (
         <View
           className="items-center justify-center gap-1 bg-surface-2 px-2"
@@ -279,6 +363,14 @@ const GalleryTile = memo(function GalleryTile({
           </Text>
         </View>
       )}
+      {deleting ? (
+        <View
+          className="absolute items-center justify-center"
+          style={{ width: size, height: size, backgroundColor: 'rgba(8, 11, 20, 0.7)' }}
+        >
+          <ActivityIndicator color={theme.colors.accent} size="small" />
+        </View>
+      ) : null}
     </Pressable>
   );
 });

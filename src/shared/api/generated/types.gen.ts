@@ -73,6 +73,12 @@ export type ObservationHistoryItem = {
     photos: Array<ObservationHistoryPhoto>;
 };
 
+export type DeleteObservationPhotoResponse = {
+    data: {
+        observationDeleted: boolean;
+    };
+};
+
 export type ObservationHistoryResponse = {
     data: Array<ObservationHistoryItem>;
     page: number;
@@ -1079,6 +1085,46 @@ export type RegisterPushDeviceResponses = {
 
 export type RegisterPushDeviceResponse = RegisterPushDeviceResponses[keyof RegisterPushDeviceResponses];
 
+export type DeleteObservationPhotoData = {
+    body?: never;
+    path: {
+        observationId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/observations/{observationId}/photos/{photoId}';
+};
+
+export type DeleteObservationPhotoErrors = {
+    /**
+     * Photo identifiers are invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * The photo does not exist or belongs to another user.
+     */
+    404: ErrorResponse;
+    /**
+     * Storage is temporarily unavailable; the client may retry.
+     */
+    503: ErrorResponse;
+};
+
+export type DeleteObservationPhotoError = DeleteObservationPhotoErrors[keyof DeleteObservationPhotoErrors];
+
+export type DeleteObservationPhotoResponses = {
+    /**
+     * Photo deleted; reports whether the empty observation was removed too.
+     */
+    200: DeleteObservationPhotoResponse;
+};
+
+export type DeleteObservationPhotoResponse2 = DeleteObservationPhotoResponses[keyof DeleteObservationPhotoResponses];
+
 export type SaveObservationPhotoData = {
     body: Blob | File;
     headers: {
@@ -1120,6 +1166,45 @@ export type SaveObservationPhotoResponses = {
 };
 
 export type SaveObservationPhotoResponse = SaveObservationPhotoResponses[keyof SaveObservationPhotoResponses];
+
+export type DeleteObservationData = {
+    body?: never;
+    path: {
+        observationId: string;
+    };
+    query?: never;
+    url: '/observations/{observationId}';
+};
+
+export type DeleteObservationErrors = {
+    /**
+     * Observation identifier is invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * The observation does not exist or belongs to another user.
+     */
+    404: ErrorResponse;
+    /**
+     * Storage is temporarily unavailable; the client may retry.
+     */
+    503: ErrorResponse;
+};
+
+export type DeleteObservationError = DeleteObservationErrors[keyof DeleteObservationErrors];
+
+export type DeleteObservationResponses = {
+    /**
+     * Observation and its photos deleted.
+     */
+    204: void;
+};
+
+export type DeleteObservationResponse = DeleteObservationResponses[keyof DeleteObservationResponses];
 
 export type GetUpcomingEventsData = {
     body?: never;
