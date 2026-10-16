@@ -13,8 +13,10 @@ import { getEventIdFromUrl } from '../../features/astronomical-events/index.ts';
 import type { DeviceLocation } from '../../features/device-location/index.ts';
 import {
   clearStoredPushDevice,
+  configureNotificationPresentation,
   deactivateStoredPushDevice,
   getEventIdFromNotificationData,
+  refreshStoredPushDevice,
 } from '../../features/notifications/index.ts';
 import { AuthPage } from '../../pages/auth/index.ts';
 import { SkyGuidePage } from '../../pages/camera/index.ts';
@@ -64,6 +66,7 @@ export function AppRoot() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    configureNotificationPresentation();
     const handleResponse = (response: Notifications.NotificationResponse | null) => {
       const eventId = getEventIdFromNotificationData(response?.notification.request.content.data);
       if (!eventId) return;
@@ -84,6 +87,14 @@ export function AppRoot() {
   useEffect(() => {
     if (auth.status === 'anonymous') void clearStoredPushDevice();
   }, [auth.status]);
+
+  const sessionAccessToken = auth.status === 'authenticated' ? auth.session?.accessToken : null;
+  useEffect(() => {
+    if (!sessionAccessToken) return;
+    refreshStoredPushDevice(sessionAccessToken).catch((cause: unknown) => {
+      if (__DEV__) console.warn('Push device refresh failed', cause);
+    });
+  }, [sessionAccessToken]);
 
   return (
     <SafeAreaProvider>
