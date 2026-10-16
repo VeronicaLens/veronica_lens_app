@@ -43,6 +43,23 @@ export type ObservationHistoryPhoto = {
      * Short-lived signed URL for the authenticated user's private media.
      */
     thumbnailUrl: string | null;
+    /**
+     * Device and settings recorded when the photo was taken; null for older photos.
+     */
+    capture: ObservationCaptureSummary | null;
+};
+
+/**
+ * Capture settings summary. Null values mean automatic or not recorded.
+ */
+export type ObservationCaptureSummary = {
+    deviceName: string | null;
+    iso: number | null;
+    exposureTimeSeconds: number | null;
+    exposureCompensationEv: number | null;
+    focusMode: string | null;
+    focusLensPosition: number | null;
+    whiteBalanceKelvin: number | null;
 };
 
 export type ObservationHistoryItem = {
