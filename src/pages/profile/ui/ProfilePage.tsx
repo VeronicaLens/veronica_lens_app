@@ -3,6 +3,7 @@ import { Lucide, type LucideIconName } from '@react-native-vector-icons/lucide';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
+  BackHandler,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
@@ -28,6 +29,11 @@ import {
 import type { AppLanguage, MeasurementUnit, Profile } from '../../../shared/api/index.ts';
 import { theme } from '../../../shared/config/index.ts';
 import { Button, TextField } from '../../../shared/ui/index.ts';
+import { AboutScreen } from './account/AboutScreen.tsx';
+import { DevicePermissionsScreen } from './account/DevicePermissionsScreen.tsx';
+import { PrivacyScreen } from './account/PrivacyScreen.tsx';
+
+type AccountScreenName = 'privacy' | 'permissions' | 'about';
 
 const backgroundImage = require('../../../../assets/loading-background.jpeg') as number;
 
@@ -141,17 +147,25 @@ function Avatar({
   );
 }
 
-function MenuRow({ icon, label }: { icon: LucideIconName; label: string }) {
+function MenuRow({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: LucideIconName;
+  label: string;
+  onPress(): void;
+}) {
   return (
-    <View
-      accessibilityLabel={`${label}. Disponível em breve.`}
-      accessibilityState={{ disabled: true }}
-      className="min-h-[48px] flex-row items-center rounded-control bg-surface px-4"
+    <Pressable
+      accessibilityRole="button"
+      className="min-h-[48px] flex-row items-center rounded-control bg-surface px-4 active:opacity-80"
+      onPress={onPress}
     >
-      <Lucide color={theme.colors.muted} name={icon} size={16} />
+      <Lucide color={theme.colors.accent} name={icon} size={16} />
       <Text className="ml-3 flex-1 font-body text-xs text-ink">{label}</Text>
       <Lucide color={theme.colors.muted} name="chevron-right" size={16} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -178,6 +192,16 @@ export function ProfilePage({
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [accountScreen, setAccountScreen] = useState<AccountScreenName | null>(null);
+
+  useEffect(() => {
+    if (!accountScreen) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setAccountScreen(null);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [accountScreen]);
 
   useEffect(() => {
     if (!profile) return;
@@ -286,6 +310,16 @@ export function ProfilePage({
     ).length;
     return { total: history.observations.length, moonCount, skyCount };
   }, [history.observations]);
+
+  if (accountScreen === 'privacy') {
+    return <PrivacyScreen email={email} onBack={() => setAccountScreen(null)} />;
+  }
+  if (accountScreen === 'permissions') {
+    return <DevicePermissionsScreen onBack={() => setAccountScreen(null)} />;
+  }
+  if (accountScreen === 'about') {
+    return <AboutScreen onBack={() => setAccountScreen(null)} />;
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
@@ -531,9 +565,21 @@ export function ProfilePage({
 
                 <View className="gap-3">
                   <Text className="font-label text-base text-ink">Conta e privacidade</Text>
-                  <MenuRow icon="shield-check" label="Dados e privacidade" />
-                  <MenuRow icon="smartphone" label="Permissões do dispositivo" />
-                  <MenuRow icon="info" label="Sobre o VeronicaLens" />
+                  <MenuRow
+                    icon="shield-check"
+                    label="Dados e privacidade"
+                    onPress={() => setAccountScreen('privacy')}
+                  />
+                  <MenuRow
+                    icon="smartphone"
+                    label="Permissões do dispositivo"
+                    onPress={() => setAccountScreen('permissions')}
+                  />
+                  <MenuRow
+                    icon="info"
+                    label="Sobre o VeronicaLens"
+                    onPress={() => setAccountScreen('about')}
+                  />
                   <Pressable
                     accessibilityRole="button"
                     accessibilityState={{ busy: loggingOut, disabled: loggingOut }}

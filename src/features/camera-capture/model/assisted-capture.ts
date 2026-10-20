@@ -1,7 +1,7 @@
 import type { CameraCapabilities } from './camera-capabilities.ts';
 
 export type AssistedMeteringMode = 'AF' | 'AE';
-export type AssistedFocusMode = 'center-metering' | 'automatic';
+export type AssistedFocusMode = 'center-metering' | 'automatic' | 'manual';
 export type AssistedExposureMode = 'manual' | 'automatic-metering' | 'automatic';
 
 export interface AssistedCaptureRecommendation {
@@ -17,6 +17,10 @@ export interface AssistedCapturePlan {
   exposureCompensationEv: number;
   iso: number | null;
   exposureTimeSeconds: number | null;
+  /** Lens position from 0 (closest) to 1 (infinity), or null for automatic focus. */
+  focusLensPosition: number | null;
+  /** Locked white balance temperature, or null for automatic white balance. */
+  whiteBalanceKelvin: number | null;
   recommendations: AssistedCaptureRecommendation[];
 }
 
@@ -24,7 +28,12 @@ export interface AssistedCaptureSettings {
   exposureCompensationEv?: number;
   iso?: number;
   exposureTimeSeconds?: number;
+  focusLensPosition?: number | null;
+  whiteBalanceKelvin?: number | null;
 }
+
+export type AppliedCaptureFallback =
+  'focus-metering' | 'manual-exposure' | 'exposure-compensation' | 'manual-focus' | 'white-balance';
 
 export interface AppliedCaptureParameters {
   focusMode: AssistedFocusMode;
@@ -32,7 +41,9 @@ export interface AppliedCaptureParameters {
   exposureCompensationEv: number;
   iso: number | 'automatic';
   exposureTimeSeconds: number | 'automatic';
-  fallbacks: ('focus-metering' | 'manual-exposure' | 'exposure-compensation')[];
+  focusLensPosition?: number | 'automatic';
+  whiteBalanceKelvin?: number | 'automatic';
+  fallbacks: AppliedCaptureFallback[];
 }
 
 export interface AstroPhotoMetadata {
@@ -48,8 +59,11 @@ export interface AssistedCaptureController {
   meterCenter(modes: AssistedMeteringMode[]): Promise<void>;
   setExposureBias(value: number): Promise<void>;
   setManualExposure(exposureTimeSeconds: number, iso: number): Promise<void>;
+  setFocusLensPosition?(lensPosition: number): Promise<void>;
+  setWhiteBalanceTemperature?(kelvin: number): Promise<void>;
 }
 
+export const WHITE_BALANCE_RANGE_KELVIN = { minimum: 2_500, maximum: 7_500 } as const;
 const TARGET_EXPOSURE_COMPENSATION_EV = 1;
 const TARGET_ISO = 800;
 const TARGET_EXPOSURE_TIME_SECONDS = 1 / 8;
@@ -59,7 +73,24 @@ export function createAssistedCapturePlan(
   settings: AssistedCaptureSettings = {},
 ): AssistedCapturePlan {
   const meteringModes: AssistedMeteringMode[] = [];
-  if (capabilities.focus.meteringSupported) meteringModes.push('AF');
+  const focusLensPosition =
+    capabilities.focus.lockingSupported &&
+    settings.focusLensPosition !== undefined &&
+    settings.focusLensPosition !== null &&
+    Number.isFinite(settings.focusLensPosition)
+      ? Math.min(1, Math.max(0, settings.focusLensPosition))
+      : null;
+  const whiteBalanceKelvin =
+    capabilities.whiteBalance.lockingSupported &&
+    settings.whiteBalanceKelvin !== undefined &&
+    settings.whiteBalanceKelvin !== null &&
+    Number.isFinite(settings.whiteBalanceKelvin)
+      ? Math.min(
+          WHITE_BALANCE_RANGE_KELVIN.maximum,
+          Math.max(WHITE_BALANCE_RANGE_KELVIN.minimum, settings.whiteBalanceKelvin),
+        )
+      : null;
+  if (capabilities.focus.meteringSupported && focusLensPosition === null) meteringModes.push('AF');
   if (capabilities.exposure.meteringSupported) meteringModes.push('AE');
 
   const manualExposureSupported =
@@ -79,9 +110,12 @@ export function createAssistedCapturePlan(
         finiteOrDefault(settings.exposureTimeSeconds, TARGET_EXPOSURE_TIME_SECONDS),
       )
     : null;
-  const focusMode: AssistedFocusMode = capabilities.focus.meteringSupported
-    ? 'center-metering'
-    : 'automatic';
+  const focusMode: AssistedFocusMode =
+    focusLensPosition !== null
+      ? 'manual'
+      : capabilities.focus.meteringSupported
+        ? 'center-metering'
+        : 'automatic';
   const exposureMode: AssistedExposureMode = manualExposureSupported
     ? 'manual'
     : capabilities.exposure.meteringSupported
@@ -95,6 +129,8 @@ export function createAssistedCapturePlan(
     exposureCompensationEv,
     iso,
     exposureTimeSeconds,
+    focusLensPosition,
+    whiteBalanceKelvin,
     recommendations: buildRecommendations({
       focusMode,
       exposureMode,
@@ -115,6 +151,8 @@ export async function applyAssistedCapturePlan(
   let exposureCompensationEv = 0;
   let iso: number | 'automatic' = 'automatic';
   let exposureTimeSeconds: number | 'automatic' = 'automatic';
+  let focusLensPosition: number | 'automatic' = 'automatic';
+  let whiteBalanceKelvin: number | 'automatic' = 'automatic';
 
   if (plan.meteringModes.length > 0) {
     try {
@@ -150,12 +188,37 @@ export async function applyAssistedCapturePlan(
     }
   }
 
+  if (plan.focusLensPosition !== null) {
+    try {
+      if (!controller.setFocusLensPosition) throw new Error('Manual focus is unavailable');
+      await controller.setFocusLensPosition(plan.focusLensPosition);
+      focusLensPosition = plan.focusLensPosition;
+    } catch {
+      focusMode = 'automatic';
+      fallbacks.push('manual-focus');
+    }
+  }
+
+  if (plan.whiteBalanceKelvin !== null) {
+    try {
+      if (!controller.setWhiteBalanceTemperature) {
+        throw new Error('Manual white balance is unavailable');
+      }
+      await controller.setWhiteBalanceTemperature(plan.whiteBalanceKelvin);
+      whiteBalanceKelvin = plan.whiteBalanceKelvin;
+    } catch {
+      fallbacks.push('white-balance');
+    }
+  }
+
   return {
     focusMode,
     exposureMode,
     exposureCompensationEv,
     iso,
     exposureTimeSeconds,
+    focusLensPosition,
+    whiteBalanceKelvin,
     fallbacks,
   };
 }
@@ -214,20 +277,26 @@ function buildRecommendations({
   exposureTimeSeconds,
 }: Omit<
   AssistedCapturePlan,
-  'meteringModes' | 'recommendations'
+  'meteringModes' | 'recommendations' | 'focusLensPosition' | 'whiteBalanceKelvin'
 >): AssistedCaptureRecommendation[] {
   const focus: AssistedCaptureRecommendation =
-    focusMode === 'center-metering'
+    focusMode === 'manual'
       ? {
           id: 'focus',
-          title: 'Centralize o astro',
-          detail: 'O foco será medido no centro imediatamente antes da foto.',
+          title: 'Foco manual',
+          detail: 'A lente ficará travada na posição escolhida durante a foto.',
         }
-      : {
-          id: 'focus',
-          title: 'Foco automático',
-          detail: 'Este aparelho cuidará do foco usando o modo padrão da câmera.',
-        };
+      : focusMode === 'center-metering'
+        ? {
+            id: 'focus',
+            title: 'Centralize o astro',
+            detail: 'O foco será medido no centro imediatamente antes da foto.',
+          }
+        : {
+            id: 'focus',
+            title: 'Foco automático',
+            detail: 'Este aparelho cuidará do foco usando o modo padrão da câmera.',
+          };
   const exposure: AssistedCaptureRecommendation =
     exposureMode === 'manual' && iso !== null && exposureTimeSeconds !== null
       ? {

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { ObservationHistoryItem } from '../../../shared/api/index.ts';
-import { getObservationHistory } from '../api/observation-history-api.ts';
+import {
+  deleteObservation,
+  deleteObservationPhoto,
+  getObservationHistory,
+} from '../api/observation-history-api.ts';
 
 const pageSize = 20;
 
@@ -22,7 +26,7 @@ export function useObservationHistory(accessToken: string) {
       setPage(response.page);
       setHasMore(response.hasMore);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível carregar seu histórico.');
+      setError(cause instanceof Error ? cause.message : 'Não foi possível carregar sua galeria.');
     } finally {
       setLoading(false);
     }
@@ -50,5 +54,44 @@ export function useObservationHistory(accessToken: string) {
     }
   }, [accessToken, hasMore, loading, loadingMore, page]);
 
-  return { observations, loading, loadingMore, hasMore, error, refresh, loadMore };
+  const removePhoto = useCallback(
+    async (observationId: string, photoId: string) => {
+      const result = await deleteObservationPhoto(accessToken, observationId, photoId);
+      setObservations((current) =>
+        result.observationDeleted
+          ? current.filter((observation) => observation.id !== observationId)
+          : current.map((observation) =>
+              observation.id === observationId
+                ? {
+                    ...observation,
+                    photos: observation.photos.filter((photo) => photo.id !== photoId),
+                  }
+                : observation,
+            ),
+      );
+    },
+    [accessToken],
+  );
+
+  const removeObservation = useCallback(
+    async (observationId: string) => {
+      await deleteObservation(accessToken, observationId);
+      setObservations((current) =>
+        current.filter((observation) => observation.id !== observationId),
+      );
+    },
+    [accessToken],
+  );
+
+  return {
+    observations,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    refresh,
+    loadMore,
+    removePhoto,
+    removeObservation,
+  };
 }

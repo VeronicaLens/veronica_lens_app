@@ -19,6 +19,35 @@ export function projectCelestialToScreen(
   target: HorizontalCoordinates,
   context: ProjectionContext,
 ): ScreenProjection | null {
+  const projection = projectCelestialDirection(target, context);
+  if (
+    !projection ||
+    Math.abs(projection.normalizedX) > 1 + VISIBILITY_EPSILON ||
+    Math.abs(projection.normalizedY) > 1 + VISIBILITY_EPSILON
+  ) {
+    return null;
+  }
+
+  const boundedX = clamp(projection.normalizedX, -1, 1);
+  const boundedY = clamp(projection.normalizedY, -1, 1);
+
+  return {
+    x: ((boundedX + 1) * context.viewport.width) / 2,
+    y: ((1 - boundedY) * context.viewport.height) / 2,
+    normalizedX: boundedX,
+    normalizedY: boundedY,
+    depth: projection.depth,
+  };
+}
+
+/**
+ * Projects a direction in front of the camera without clipping it to the field of view.
+ * Useful for drawing line segments whose endpoints may lie slightly outside the screen.
+ */
+export function projectCelestialDirection(
+  target: HorizontalCoordinates,
+  context: ProjectionContext,
+): ScreenProjection | null {
   validateInput(target, context);
 
   const targetVector = horizontalCoordinatesToVector(target);
@@ -34,21 +63,11 @@ export function projectCelestialToScreen(
   const normalizedX = dot(targetVector, camera.right) / (depth * tangentHorizontal);
   const normalizedY = dot(targetVector, camera.up) / (depth * tangentVertical);
 
-  if (
-    Math.abs(normalizedX) > 1 + VISIBILITY_EPSILON ||
-    Math.abs(normalizedY) > 1 + VISIBILITY_EPSILON
-  ) {
-    return null;
-  }
-
-  const boundedX = clamp(normalizedX, -1, 1);
-  const boundedY = clamp(normalizedY, -1, 1);
-
   return {
-    x: ((boundedX + 1) * context.viewport.width) / 2,
-    y: ((1 - boundedY) * context.viewport.height) / 2,
-    normalizedX: boundedX,
-    normalizedY: boundedY,
+    x: ((normalizedX + 1) * context.viewport.width) / 2,
+    y: ((1 - normalizedY) * context.viewport.height) / 2,
+    normalizedX,
+    normalizedY,
     depth,
   };
 }

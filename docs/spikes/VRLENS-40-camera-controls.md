@@ -66,10 +66,10 @@ Para cada aparelho e câmera, registrar:
 
 - **Viável no MVP:** preview/captura, foco por ponto, medição/lock 3A e compensação EV via
   VisionCamera, sempre protegidos por capability checks.
-- **Exige desenvolvimento nativo adicional no Android:** embora o VisionCamera exponha leitura de
-  ISO/duração e `setExposureLocked`, a referência atual marca o setter apenas para iOS. O Android
-  precisa de Camera2/CameraX Interop para esses controles manuais.
+- **Implementado no Android:** o patch local do VisionCamera consulta `MANUAL_SENSOR` e os intervalos
+  Camera2, aplica ISO/obturador via CameraX Interop e restaura AE após a captura. Os controles só
+  ficam visíveis em câmeras compatíveis.
 - **Estratégia escolhida:** experiência progressiva por capacidade, com captura automática como
   baseline universal.
-- **Restrição de execução:** os testes físicos foram planejados, mas não executados durante o spike
-  por ausência de dois dispositivos e do binário nativo, que pertence à VRLENS-52.
+- **Validação pendente:** ainda é necessário compilar o Development Build e preencher a matriz em
+  aparelhos físicos; a análise não substitui a confirmação do resultado da exposição na imagem.

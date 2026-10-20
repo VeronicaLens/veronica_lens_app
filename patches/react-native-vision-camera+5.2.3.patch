@@ -1,0 +1,148 @@
+diff --git a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/HybridCameraController.kt b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/HybridCameraController.kt
+index 337601a..718aa5c 100644
+--- a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/HybridCameraController.kt
++++ b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/HybridCameraController.kt
+@@ -2,12 +2,17 @@ package com.margelo.nitro.camera.hybrids
+ 
+ import android.animation.Animator
+ import android.animation.ValueAnimator
++import android.hardware.camera2.CameraCharacteristics
++import android.hardware.camera2.CaptureRequest
+ import androidx.camera.core.Camera
+ import androidx.camera.core.CameraState
+ import androidx.camera.core.FocusMeteringAction
+ import androidx.camera.core.LowLightBoostState
+ import androidx.camera.core.MeteringPoint
+ import androidx.camera.core.TorchState
++import androidx.camera.camera2.interop.Camera2CameraControl
++import androidx.camera.camera2.interop.Camera2CameraInfo
++import androidx.camera.camera2.interop.CaptureRequestOptions
+ import com.google.common.util.concurrent.ListenableFuture
+ import com.margelo.nitro.camera.CameraControllerConfiguration
+ import com.margelo.nitro.camera.ExposureMode
+@@ -33,6 +38,8 @@ import com.margelo.nitro.core.Promise
+ import com.margelo.nitro.core.resolve
+ import com.margelo.nitro.core.resolved
+ import java.util.concurrent.TimeUnit
++import kotlin.math.roundToInt
++import kotlin.math.roundToLong
+ 
+ class HybridCameraController(
+   val camera: Camera,
+@@ -41,6 +48,13 @@ class HybridCameraController(
+   private val cameraState: CameraState?
+     get() = camera.cameraInfo.cameraState.value
+   private var zoomAnimator: ValueAnimator? = null
++  private val camera2Info by lazy { Camera2CameraInfo.from(camera.cameraInfo) }
++  private val isoRange: android.util.Range<Int>?
++    get() = camera2Info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
++  private val exposureTimeRange: android.util.Range<Long>?
++    get() = camera2Info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
++  @Volatile private var currentIso = 0.0
++  @Volatile private var currentExposureDurationSeconds = 0.0
+ 
+   override val isConnected: Boolean
+     get() = cameraState?.type == CameraState.Type.OPEN
+@@ -300,28 +314,57 @@ class HybridCameraController(
+     )
+   }
+ 
+-  // TODO: Once CameraX implements locking Exposure to custom duration/ISO, implement this:
++  // Sensor ranges are exposed in seconds/ISO and converted to Camera2's nanoseconds/integer values.
+   override val minExposureDuration: Double
+-    get() = 0.0
++    get() = (exposureTimeRange?.lower ?: 0L) / 1_000_000_000.0
+   override val maxExposureDuration: Double
+-    get() = 0.0
++    get() = (exposureTimeRange?.upper ?: 0L) / 1_000_000_000.0
+   override val minISO: Double
+-    get() = 0.0
++    get() = (isoRange?.lower ?: 0).toDouble()
+   override val maxISO: Double
+-    get() = 0.0
++    get() = (isoRange?.upper ?: 0).toDouble()
+   override val iso: Double
+-    get() = 0.0
++    get() = currentIso
+   override val exposureDuration: Double
+-    get() = 0.0
++    get() = currentExposureDurationSeconds
+ 
+   override fun setExposureLocked(
+     duration: Double,
+     iso: Double,
+   ): Promise<Unit> {
+-    throw Error(
+-      "Locking Exposure to manual duration/ISO values is not yet supported on Android! " +
+-        "You can use Exposure Bias (`setExposureBias(...)`) or AE metering locks (`focusTo(point, { modes: ['AE'], adaptiveness: 'locked' })`) instead.",
+-    )
++    return Promise.async {
++      val camera2Control = Camera2CameraControl.from(camera.cameraControl)
++      if (duration == 0.0 && iso == 0.0) {
++        camera2Control.clearCaptureRequestOptions().await()
++        currentExposureDurationSeconds = 0.0
++        currentIso = 0.0
++        return@async
++      }
++
++      val supportedIsoRange = isoRange ?: throw Error("Manual ISO is unavailable on this camera.")
++      val supportedDurationRange =
++        exposureTimeRange ?: throw Error("Manual exposure time is unavailable on this camera.")
++      if (!duration.isFinite() || !iso.isFinite()) {
++        throw Error("Manual exposure values must be finite numbers.")
++      }
++      val durationNanos = (duration * 1_000_000_000.0).roundToLong()
++      val isoValue = iso.roundToInt()
++      if (durationNanos !in supportedDurationRange.lower..supportedDurationRange.upper ||
++        isoValue !in supportedIsoRange.lower..supportedIsoRange.upper
++      ) {
++        throw Error("Manual exposure values are outside this camera's supported ranges.")
++      }
++
++      val options =
++        CaptureRequestOptions.Builder()
++          .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
++          .setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, isoValue)
++          .setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, durationNanos)
++          .build()
++      camera2Control.setCaptureRequestOptions(options).await()
++      currentExposureDurationSeconds = durationNanos / 1_000_000_000.0
++      currentIso = isoValue.toDouble()
++    }
+   }
+ 
+   override fun lockCurrentExposure(): Promise<Unit> {
+diff --git a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/inputs/HybridCameraDevice.kt b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/inputs/HybridCameraDevice.kt
+index a00188f..95dad6e 100644
+--- a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/inputs/HybridCameraDevice.kt
++++ b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/hybrids/inputs/HybridCameraDevice.kt
+@@ -61,6 +61,15 @@ class HybridCameraDevice(
+ ) : HybridCameraDeviceSpec(),
+   NativeCameraDevice {
+   private val cameraCharacteristics = cameraInfo.cameraCharacteristicsOrNull
++  private val supportsManualSensor by lazy {
++    val availableCapabilities =
++      cameraCharacteristics?.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
++    availableCapabilities?.contains(
++      CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR,
++    ) == true &&
++      cameraCharacteristics?.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE) != null &&
++      cameraCharacteristics?.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE) != null
++  }
+   private val previewCapabilities by lazy {
+     Preview.getPreviewCapabilities(cameraInfo)
+   }
+@@ -125,11 +134,11 @@ class HybridCameraDevice(
+   override val supportsWhiteBalanceMetering: Boolean
+     get() = cameraInfo.isFocusMeteringSupported(createDummyMeteringAction(FocusMeteringAction.FLAG_AWB))
+ 
+-  // TODO: CameraX doesn't support manual Focus/Exposure/WB locking...
++  // CameraX does not provide a manual sensor API; exposure is controlled through Camera2 interop.
+   override val supportsFocusLocking: Boolean
+     get() = false
+   override val supportsExposureLocking: Boolean
+-    get() = false
++    get() = supportsManualSensor
+   override val supportsWhiteBalanceLocking: Boolean
+     get() = false
+ 

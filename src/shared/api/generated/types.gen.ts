@@ -43,6 +43,23 @@ export type ObservationHistoryPhoto = {
      * Short-lived signed URL for the authenticated user's private media.
      */
     thumbnailUrl: string | null;
+    /**
+     * Device and settings recorded when the photo was taken; null for older photos.
+     */
+    capture: ObservationCaptureSummary | null;
+};
+
+/**
+ * Capture settings summary. Null values mean automatic or not recorded.
+ */
+export type ObservationCaptureSummary = {
+    deviceName: string | null;
+    iso: number | null;
+    exposureTimeSeconds: number | null;
+    exposureCompensationEv: number | null;
+    focusMode: string | null;
+    focusLensPosition: number | null;
+    whiteBalanceKelvin: number | null;
 };
 
 export type ObservationHistoryItem = {
@@ -54,6 +71,12 @@ export type ObservationHistoryItem = {
     latitude: number | null;
     longitude: number | null;
     photos: Array<ObservationHistoryPhoto>;
+};
+
+export type DeleteObservationPhotoResponse = {
+    data: {
+        observationDeleted: boolean;
+    };
 };
 
 export type ObservationHistoryResponse = {
@@ -289,14 +312,40 @@ export type ObservationRecommendationResponse = {
 export type ObservationRating = 'good' | 'fair' | 'poor';
 
 export type CurrentConditions = {
+    requestedAt: string;
+    /**
+     * Time of the hourly forecast sample used; this is not an on-site observation.
+     */
     observedAt: string;
+    fetchedAt: string;
     temperatureCelsius: number;
+    relativeHumidityPercent: number;
     cloudCoverPercent: number;
     precipitationProbabilityPercent: number;
+    precipitationMillimeters: number;
     visibilityMeters: number;
+    windSpeedKilometersPerHour: number;
     rating: ObservationRating;
+    factors: Array<CurrentConditionsFactor>;
     skyLabel: string;
     visibilityLabel: string;
+};
+
+export type CurrentConditionsFactor = {
+    code: 'cloud-cover' | 'precipitation' | 'visibility' | 'wind' | 'humidity';
+    status: 'good' | 'caution' | 'poor';
+    summary: string;
+};
+
+export type CurrentConditionsForecast = {
+    from: string;
+    to: string;
+    fetchedAt: string;
+    hourly: Array<CurrentConditions>;
+};
+
+export type CurrentConditionsForecastResponse = {
+    data: CurrentConditionsForecast;
 };
 
 export type CurrentConditionsResponse = {
@@ -1036,6 +1085,46 @@ export type RegisterPushDeviceResponses = {
 
 export type RegisterPushDeviceResponse = RegisterPushDeviceResponses[keyof RegisterPushDeviceResponses];
 
+export type DeleteObservationPhotoData = {
+    body?: never;
+    path: {
+        observationId: string;
+        photoId: string;
+    };
+    query?: never;
+    url: '/observations/{observationId}/photos/{photoId}';
+};
+
+export type DeleteObservationPhotoErrors = {
+    /**
+     * Photo identifiers are invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * The photo does not exist or belongs to another user.
+     */
+    404: ErrorResponse;
+    /**
+     * Storage is temporarily unavailable; the client may retry.
+     */
+    503: ErrorResponse;
+};
+
+export type DeleteObservationPhotoError = DeleteObservationPhotoErrors[keyof DeleteObservationPhotoErrors];
+
+export type DeleteObservationPhotoResponses = {
+    /**
+     * Photo deleted; reports whether the empty observation was removed too.
+     */
+    200: DeleteObservationPhotoResponse;
+};
+
+export type DeleteObservationPhotoResponse2 = DeleteObservationPhotoResponses[keyof DeleteObservationPhotoResponses];
+
 export type SaveObservationPhotoData = {
     body: Blob | File;
     headers: {
@@ -1078,6 +1167,45 @@ export type SaveObservationPhotoResponses = {
 
 export type SaveObservationPhotoResponse = SaveObservationPhotoResponses[keyof SaveObservationPhotoResponses];
 
+export type DeleteObservationData = {
+    body?: never;
+    path: {
+        observationId: string;
+    };
+    query?: never;
+    url: '/observations/{observationId}';
+};
+
+export type DeleteObservationErrors = {
+    /**
+     * Observation identifier is invalid.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * The observation does not exist or belongs to another user.
+     */
+    404: ErrorResponse;
+    /**
+     * Storage is temporarily unavailable; the client may retry.
+     */
+    503: ErrorResponse;
+};
+
+export type DeleteObservationError = DeleteObservationErrors[keyof DeleteObservationErrors];
+
+export type DeleteObservationResponses = {
+    /**
+     * Observation and its photos deleted.
+     */
+    204: void;
+};
+
+export type DeleteObservationResponse = DeleteObservationResponses[keyof DeleteObservationResponses];
+
 export type GetUpcomingEventsData = {
     body?: never;
     path?: never;
@@ -1118,7 +1246,7 @@ export type GetUpcomingEventsResponses = {
 
 export type GetUpcomingEventsResponse = GetUpcomingEventsResponses[keyof GetUpcomingEventsResponses];
 
-export type GetCurrentConditionsData = {
+export type GetConditionsForecastData = {
     body?: never;
     path?: never;
     query: {
@@ -1126,12 +1254,54 @@ export type GetCurrentConditionsData = {
         longitudeDegrees: number;
         elevationMeters?: number;
     };
+    url: '/conditions/forecast';
+};
+
+export type GetConditionsForecastErrors = {
+    /**
+     * Invalid observer coordinates.
+     */
+    400: ErrorResponse;
+    /**
+     * Access token is invalid or expired.
+     */
+    401: ErrorResponse;
+    /**
+     * Weather forecast provider unavailable or returned no hourly samples.
+     */
+    503: ErrorResponse;
+};
+
+export type GetConditionsForecastError = GetConditionsForecastErrors[keyof GetConditionsForecastErrors];
+
+export type GetConditionsForecastResponses = {
+    /**
+     * Hourly weather estimates and assessment factors for the forecast horizon.
+     */
+    200: CurrentConditionsForecastResponse;
+};
+
+export type GetConditionsForecastResponse = GetConditionsForecastResponses[keyof GetConditionsForecastResponses];
+
+export type GetCurrentConditionsData = {
+    body?: never;
+    path?: never;
+    query: {
+        latitudeDegrees: number;
+        longitudeDegrees: number;
+        elevationMeters?: number;
+        /**
+         * Optional future local selection represented as an ISO 8601 instant. The API evaluates the nearest hourly forecast sample, up to seven days ahead.
+         *
+         */
+        at?: string;
+    };
     url: '/conditions/current';
 };
 
 export type GetCurrentConditionsErrors = {
     /**
-     * Invalid observer coordinates.
+     * Invalid observer coordinates or a requested time outside the next seven days.
      */
     400: ErrorResponse;
     /**
@@ -1148,7 +1318,8 @@ export type GetCurrentConditionsError = GetCurrentConditionsErrors[keyof GetCurr
 
 export type GetCurrentConditionsResponses = {
     /**
-     * Current sky, weather and visibility conditions for the observer.
+     * Hourly weather estimate. observedAt identifies the forecast sample time, not a real-time measurement at the observer location.
+     *
      */
     200: CurrentConditionsResponse;
 };

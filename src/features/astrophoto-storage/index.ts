@@ -23,4 +23,8 @@ export async function flushPendingAstroPhotos(accessToken: string) {
   return await retryPendingAstroPhotos(accessToken, store, uploader);
 }
 
+export async function getPendingAstroPhotoCount() {
+  return (await store.list()).length;
+}
+
 export * from './model/astrophoto-sync.ts';

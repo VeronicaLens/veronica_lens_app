@@ -40,6 +40,7 @@ function capabilities(overrides: Partial<CameraCapabilities> = {}): CameraCapabi
       maximum: null,
       fallback: 'automatic-exposure',
     },
+    whiteBalance: { lockingSupported: false, maxGain: 0 },
     ...overrides,
   };
 }
@@ -289,4 +290,70 @@ test('records capture time, device and parameters in photo metadata', () => {
   assert.equal(metadata.device.id, 'back-wide');
   assert.equal(metadata.parameters.iso, 'automatic');
   assert.match(describeAppliedCapture(metadata.parameters), /nível \+0\.5/);
+});
+
+test('locks manual focus and white balance when the camera supports them', async () => {
+  const manualCamera = capabilities({
+    focus: { meteringSupported: true, lockingSupported: true, fallback: 'tap-to-focus' },
+    whiteBalance: { lockingSupported: true, maxGain: 4 },
+  });
+  const plan = createAssistedCapturePlan(manualCamera, {
+    focusLensPosition: 1.4,
+    whiteBalanceKelvin: 9_000,
+  });
+  const calls: string[] = [];
+
+  const applied = await applyAssistedCapturePlan(
+    plan,
+    controller({
+      meterCenter: async (modes) => {
+        calls.push(`meter:${modes.join(',')}`);
+      },
+      setFocusLensPosition: async (position) => {
+        calls.push(`focus:${position}`);
+      },
+      setWhiteBalanceTemperature: async (kelvin) => {
+        calls.push(`wb:${kelvin}`);
+      },
+    }),
+  );
+
+  assert.equal(plan.focusMode, 'manual');
+  assert.ok(!plan.meteringModes.includes('AF'));
+  assert.deepEqual(calls, ['meter:AE', 'focus:1', 'wb:7500']);
+  assert.equal(applied.focusLensPosition, 1);
+  assert.equal(applied.whiteBalanceKelvin, 7_500);
+  assert.deepEqual(applied.fallbacks, []);
+});
+
+test('keeps focus and white balance automatic on cameras without manual locks', async () => {
+  const plan = createAssistedCapturePlan(capabilities(), {
+    focusLensPosition: 1,
+    whiteBalanceKelvin: 4_000,
+  });
+
+  const applied = await applyAssistedCapturePlan(plan, controller());
+
+  assert.equal(plan.focusLensPosition, null);
+  assert.equal(plan.whiteBalanceKelvin, null);
+  assert.equal(applied.focusLensPosition, 'automatic');
+  assert.equal(applied.whiteBalanceKelvin, 'automatic');
+});
+
+test('falls back to automatic focus when locking the lens fails', async () => {
+  const plan = createAssistedCapturePlan(
+    capabilities({
+      focus: { meteringSupported: true, lockingSupported: true, fallback: 'tap-to-focus' },
+    }),
+    { focusLensPosition: 1 },
+  );
+
+  const applied = await applyAssistedCapturePlan(
+    plan,
+    controller({ setFocusLensPosition: () => Promise.reject(new Error('busy')) }),
+  );
+
+  assert.equal(applied.focusMode, 'automatic');
+  assert.equal(applied.focusLensPosition, 'automatic');
+  assert.deepEqual(applied.fallbacks, ['manual-focus']);
 });

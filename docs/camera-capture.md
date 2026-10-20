@@ -48,13 +48,13 @@ rede ou Storage mantém a fila e o arquivo para nova tentativa na próxima abert
 A folha de ajustes mostra recomendações de foco, exposição e estabilidade derivadas das capacidades
 da câmera ativa. Os controles de compensação de exposição, ISO e tempo respeitam os intervalos
 reportados; as escolhas são aplicadas antes do disparo e qualquer falha retorna ao modo automático
-sem impedir a captura básica. ISO e tempo manual permanecem automáticos no Android até existir um adaptador
-Camera2/CameraX que consiga aplicar esses valores; esses controles só aparecem em plataformas que
-confirmem suporte efetivo.
+sem impedir a captura básica. No Android, ISO e obturador usam Camera2 Interop e só aparecem quando a
+câmera ativa anuncia `MANUAL_SENSOR` e faixas válidas. A exposição automática é restaurada após a
+foto. O patch nativo do VisionCamera exige um novo Development Build após sua instalação.
 
 O resultado `CapturedPhoto` acompanha metadados internos com instante UTC, câmera ativa e os
 parâmetros efetivamente aplicados. ISO e tempo de exposição são registrados como `automatic`
-quando o Android não oferece controle manual. Esses metadados ficam prontos para persistência ou
+quando a câmera não oferece controle manual ou quando a aplicação dos valores falha. Esses metadados ficam prontos para persistência ou
 upload posterior; esta história não reescreve EXIF nem publica a imagem na galeria.
 
 Referências:

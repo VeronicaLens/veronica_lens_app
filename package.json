@@ -41,11 +41,13 @@
     "eslint-config-expo": "57.0.2",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.6",
+    "patch-package": "^8.0.1",
     "prettier": "3.9.6",
     "tailwindcss": "3.4.17",
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "postinstall": "patch-package",
     "start": "expo start",
     "start:dev": "expo start --dev-client",
     "start:dev:tunnel": "expo start --dev-client --tunnel",
@@ -58,7 +60,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/shared/config/env.test.ts src/shared/api/connectivity.test.ts src/features/auth/api/auth-api.test.ts src/features/auth/lib/recovery-link.test.ts src/features/auth/model/session-storage.test.ts src/features/auth/model/session-refresh.test.ts src/features/profile/api/profile-api.test.ts src/features/notifications/api/notifications-api.test.ts src/features/notifications/lib/notification-event-link.test.ts src/features/device-orientation/model/orientation.test.ts src/features/device-orientation/model/device-orientation.service.test.ts src/features/celestial-projection/model/celestial-projection.test.ts src/features/sky-guide/api/sky-guide-api.test.ts src/features/observation-planning/api/observation-planning-api.test.ts src/features/observation-history/api/observation-history-api.test.ts src/features/astronomical-events/api/events-api.test.ts src/features/current-conditions/api/current-conditions-api.test.ts src/features/learning/api/learning-api.test.ts src/features/astronomical-events/lib/event-link.test.ts src/features/camera-capture/model/camera-capture.test.ts src/features/camera-capture/model/camera-capabilities.test.ts src/features/astrophoto-storage/model/astrophoto-sync.test.ts",
+    "test": "node --test --experimental-strip-types src/shared/config/env.test.ts src/shared/api/connectivity.test.ts src/features/auth/api/auth-api.test.ts src/features/auth/lib/recovery-link.test.ts src/features/auth/model/session-storage.test.ts src/features/auth/model/session-refresh.test.ts src/features/profile/api/profile-api.test.ts src/features/notifications/api/notifications-api.test.ts src/features/notifications/lib/notification-event-link.test.ts src/features/notifications/lib/push-registration-error.test.ts src/features/device-permissions/lib/permission-status.test.ts src/features/device-orientation/model/orientation.test.ts src/features/device-orientation/model/device-orientation.service.test.ts src/features/celestial-projection/model/celestial-projection.test.ts src/features/celestial-projection/model/constellation-figures.test.ts src/features/sky-guide/api/sky-guide-api.test.ts src/features/observation-planning/api/observation-planning-api.test.ts src/features/observation-history/api/observation-history-api.test.ts src/features/observation-history/model/photo-gallery.test.ts src/features/observation-history/model/place-name.test.ts src/features/observation-history/lib/jpeg-orientation.test.ts src/features/astronomical-events/api/events-api.test.ts src/features/current-conditions/api/current-conditions-api.test.ts src/features/learning/api/learning-api.test.ts src/features/astronomical-events/lib/event-link.test.ts src/features/camera-capture/model/camera-capture.test.ts src/features/camera-capture/model/camera-capabilities.test.ts src/features/camera-capture/model/assisted-capture.test.ts src/features/camera-capture/model/capture-tips.test.ts src/features/astrophoto-storage/model/astrophoto-sync.test.ts",
     "contract:generate": "openapi-ts",
     "contract:check": "npm run contract:generate && node scripts/check-generated-contract.mjs",
     "bundle:android": "expo export --platform android --output-dir dist",

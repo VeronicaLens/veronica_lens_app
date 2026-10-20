@@ -40,79 +40,134 @@ export function EventDetailPage({
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'left', 'right']}>
       <ScrollView contentContainerClassName="gap-5 px-5 pb-28 pt-5">
-        <Pressable
-          accessibilityLabel="Voltar para eventos"
-          accessibilityRole="button"
-          className="h-11 w-11 items-center justify-center rounded-full border border-border bg-surface"
-          onPress={onBack}
-        >
-          <Lucide color={theme.colors.text} name="chevron-left" size={20} />
-        </Pressable>
-
-        <View className="gap-3">
-          <View
-            className="h-16 w-16 items-center justify-center rounded-full border-2 bg-surface-2"
-            style={{ borderColor: config.color }}
+        <View className="flex-row items-center justify-between">
+          <Pressable
+            accessibilityLabel="Voltar para eventos"
+            accessibilityRole="button"
+            className="h-11 w-11 items-center justify-center rounded-full border border-border bg-surface"
+            onPress={onBack}
           >
-            <Lucide color={config.color} name={config.icon} size={28} />
-          </View>
-          <Text
-            className="font-label text-[11px] uppercase tracking-[2px]"
-            style={{ color: config.color }}
-          >
-            {config.label}
+            <Lucide color={theme.colors.text} name="chevron-left" size={20} />
+          </Pressable>
+          <Text className="font-label text-[10px] uppercase tracking-[2px] text-muted">
+            Evento astronômico
           </Text>
-          <Text accessibilityRole="header" className="font-display text-[30px] text-ink">
-            {event.title}
-          </Text>
-          <Text className="font-label text-sm text-accent">{formatEventDate(event.startsAt)}</Text>
-          <Text className="font-body text-sm leading-6 text-muted">{event.description}</Text>
         </View>
 
-        {window ? (
-          <View
-            className="flex-row items-center gap-4 rounded-card border p-4"
-            style={{ backgroundColor: theme.colors.elevated, borderColor: theme.colors.primary }}
-          >
-            <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-2">
-              <Lucide color={theme.colors.accent} name="clock" size={20} />
+        <View className="gap-4 rounded-card border border-border bg-surface p-5">
+          <View className="flex-row items-center gap-3">
+            <View
+              className="h-12 w-12 items-center justify-center rounded-full border bg-surface-2"
+              style={{ borderColor: config.color }}
+            >
+              <Lucide color={config.color} name={config.icon} size={22} />
+            </View>
+            <View className="flex-1 gap-1">
+              <Text
+                className="font-label text-[10px] uppercase tracking-[2px]"
+                style={{ color: config.color }}
+              >
+                {config.label}
+              </Text>
+              <Text className="font-body text-xs text-muted">Acompanhe o melhor momento</Text>
+            </View>
+          </View>
+          <Text accessibilityRole="header" className="font-display text-[30px] leading-9 text-ink">
+            {event.title}
+          </Text>
+          <Text className="font-body text-sm leading-6 text-muted">{event.description}</Text>
+          <View className="flex-row items-center gap-2 border-t border-border pt-3">
+            <Lucide color={theme.colors.accent} name="calendar-clock" size={16} />
+            <Text className="font-label text-xs text-ink">{formatEventDate(event.startsAt)}</Text>
+          </View>
+        </View>
+
+        <View className="gap-4 rounded-card border border-primary/40 bg-elevated p-5">
+          <View className="flex-row items-center gap-3">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-surface-2">
+              <Lucide color={theme.colors.accent} name="telescope" size={19} />
             </View>
             <View className="flex-1 gap-1">
               <Text className="font-label text-[10px] uppercase tracking-[2px] text-accent">
-                Janela favorável
+                Planejamento de observação
               </Text>
-              <Text className="font-display text-xl text-ink">
-                {formatTime(window.from)} – {formatTime(window.to)}
-              </Text>
+              <Text className="font-display text-lg text-ink">Seu melhor momento</Text>
+            </View>
+            <View className="rounded-pill border border-border bg-surface px-2.5 py-1">
+              <Text className="font-label text-[9px] text-muted">24 HORAS</Text>
             </View>
           </View>
-        ) : null}
-
-        <DetailCard icon="eye" title="Visibilidade">
+          {window ? (
+            <View className="flex-row items-center gap-3 rounded-control border border-primary/30 bg-surface px-4 py-3">
+              <Lucide color={theme.colors.accent} name="clock-3" size={19} />
+              <View className="flex-1 gap-1">
+                <Text className="font-body text-[10px] uppercase tracking-[1px] text-muted">
+                  Janela recomendada
+                </Text>
+                <Text className="font-display text-2xl text-ink">
+                  {formatTime(window.from)} – {formatTime(window.to)}
+                </Text>
+              </View>
+            </View>
+          ) : null}
           {!location ? (
-            <Text className="font-body text-xs leading-5 text-muted">
-              Dados de visibilidade indisponíveis sem a localização do observador.
-            </Text>
+            <PlanningMessage icon="map-pin-off">
+              Ative a localização para calcular um plano personalizado para o seu céu.
+            </PlanningMessage>
           ) : planning.loading ? (
-            <View className="flex-row items-center gap-2">
+            <View className="flex-row items-center gap-3 rounded-control bg-surface px-3 py-3">
               <ActivityIndicator color={theme.colors.accent} size="small" />
-              <Text className="font-body text-xs text-muted">Calculando condições...</Text>
+              <View className="flex-1 gap-1">
+                <Text className="font-label text-xs text-ink">Analisando o céu</Text>
+                <Text className="font-body text-[11px] text-muted">
+                  Verificando posição do astro e previsão do tempo.
+                </Text>
+              </View>
             </View>
           ) : planning.error ? (
-            <View className="gap-2">
-              <Text className="font-body text-xs leading-5 text-muted">{planning.error}</Text>
+            <View className="flex-row items-center gap-3 rounded-control bg-surface px-3 py-3">
+              <Lucide color={theme.colors.event} name="cloud-alert" size={18} />
+              <Text className="flex-1 font-body text-xs leading-5 text-muted">
+                {planning.error}
+              </Text>
               <Pressable accessibilityRole="button" onPress={planning.refresh}>
-                <Text className="font-label text-xs text-accent">Tentar novamente</Text>
+                <Text className="font-label text-xs text-accent">Tentar</Text>
               </Pressable>
             </View>
           ) : recommendation ? (
-            <VisibilityDetails recommendation={recommendation} />
+            <View className="gap-2">
+              <View className="flex-row items-center gap-2">
+                <Lucide
+                  color={
+                    recommendation.status === 'recommended' ? theme.colors.info : theme.colors.event
+                  }
+                  name={recommendation.status === 'recommended' ? 'circle-check' : 'circle-alert'}
+                  size={16}
+                />
+                <Text className="flex-1 font-label text-xs text-ink">
+                  {recommendation.status === 'recommended'
+                    ? 'Condições avaliadas'
+                    : recommendation.status === 'insufficient_data'
+                      ? 'Análise incompleta'
+                      : 'Nenhuma janela favorável'}
+                </Text>
+              </View>
+              <Text className="font-body text-xs leading-5 text-muted">
+                {recommendation.summary}
+              </Text>
+            </View>
           ) : (
-            <Text className="font-body text-xs leading-5 text-muted">
-              Nenhum dado complementar de visibilidade disponível.
-            </Text>
+            <PlanningMessage icon="orbit">
+              Selecione um objeto com dados de posição para encontrar uma janela favorável.
+            </PlanningMessage>
           )}
-        </DetailCard>
+        </View>
+
+        {recommendation ? (
+          <DetailCard icon="scan-eye" title="Fatores considerados">
+            <VisibilityDetails recommendation={recommendation} />
+          </DetailCard>
+        ) : null}
 
         <DetailCard icon="database" title="Origem do dado">
           {meta ? (
@@ -141,7 +196,6 @@ export function EventDetailPage({
 }
 
 function VisibilityDetails({ recommendation }: { recommendation: ObservationRecommendation }) {
-  const window = recommendation.recommendedWindow;
   const altitude = findFactor(recommendation.factors, 'altitude');
   const weather = findFactor(recommendation.factors, 'weather');
   const altitudeValue = altitude?.metrics?.altitudeDegrees ?? null;
@@ -152,14 +206,6 @@ function VisibilityDetails({ recommendation }: { recommendation: ObservationReco
 
   return (
     <View className="gap-3">
-      <Text className="font-label text-xs text-ink">
-        {recommendation.status === 'recommended' && window
-          ? `Janela favorável: ${formatTime(window.from)}–${formatTime(window.to)}`
-          : recommendation.status === 'insufficient_data'
-            ? 'Dados insuficientes'
-            : 'Sem janela favorável'}
-      </Text>
-
       {altitudeValue !== null || cloudValue !== null ? (
         <View className="overflow-hidden rounded-control bg-surface-2">
           {altitudeValue !== null ? (
@@ -203,6 +249,15 @@ function VisibilityDetails({ recommendation }: { recommendation: ObservationReco
       {!recommendation.meta.weatherAvailable ? (
         <Text className="font-body text-[11px] text-event">Previsão climática indisponível.</Text>
       ) : null}
+    </View>
+  );
+}
+
+function PlanningMessage({ icon, children }: { icon: LucideIconName; children: string }) {
+  return (
+    <View className="flex-row items-center gap-3 rounded-control bg-surface px-3 py-3">
+      <Lucide color={theme.colors.muted} name={icon} size={18} />
+      <Text className="flex-1 font-body text-xs leading-5 text-muted">{children}</Text>
     </View>
   );
 }
