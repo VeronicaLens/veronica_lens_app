@@ -1,0 +1,42 @@
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: #080b14;
+  color: #f5f7fb;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.65;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+h1 {
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin-top: 2rem;
+  color: #b5acff;
+}
+
+a {
+  color: #70d7ff;
+}
+
+.meta {
+  color: #98a2b3;
+  font-size: 0.9rem;
+  margin-top: 0;
+}
+
+li {
+  margin-bottom: 0.4rem;
+}

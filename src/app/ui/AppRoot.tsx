@@ -108,6 +108,12 @@ export function AppRoot() {
             <ProfilePage
               accessToken={auth.session.accessToken}
               email={auth.session.user.email}
+              onAccountDeleted={async () => {
+                setAuthenticatedPage('home');
+                setProfileDisplayName(null);
+                setConditionObserver(null);
+                await auth.logout();
+              }}
               onLogout={async () => {
                 setAuthenticatedPage('home');
                 setProfileDisplayName(null);

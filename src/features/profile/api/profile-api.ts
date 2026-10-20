@@ -27,3 +27,11 @@ export async function updateProfile(
     })
   ).data;
 }
+
+/** Permanently removes the account and everything stored for it. */
+export async function deleteAccount(
+  accessToken: string,
+  request: Request = apiRequest,
+): Promise<void> {
+  await request<void>('/profile', { method: 'DELETE', headers: authorization(accessToken) });
+}

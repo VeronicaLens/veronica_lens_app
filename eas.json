@@ -17,6 +17,24 @@
         "buildType": "apk"
       }
     },
-    "production": {}
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://veronica-lens-api.onrender.com/api/v1",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "1097554833735-f452tak5edsa58tlkbk1nevc0nitpq2i.apps.googleusercontent.com",
+        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://veronicalens.github.io/veronica_lens_app/privacidade/"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
   }
 }
