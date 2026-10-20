@@ -1,8 +1,19 @@
 import { getPublicEnvironment } from '../../../../shared/config/index.ts';
 import { AccountScreenLayout, AccountSection, InfoRow, LinkRow } from './AccountScreenParts.tsx';
+import { DeleteAccountSection } from './DeleteAccountSection.tsx';
 import { openExternalUrl } from './external-links.ts';
 
-export function PrivacyScreen({ email, onBack }: { email: string; onBack(): void }) {
+export function PrivacyScreen({
+  accessToken,
+  email,
+  onAccountDeleted,
+  onBack,
+}: {
+  accessToken: string;
+  email: string;
+  onAccountDeleted(): Promise<void>;
+  onBack(): void;
+}) {
   const { privacyPolicyUrl } = getPublicEnvironment();
 
   return (
@@ -71,6 +82,10 @@ export function PrivacyScreen({ email, onBack }: { email: string; onBack(): void
           />
         </AccountSection>
       ) : null}
+
+      <AccountSection title="Excluir conta">
+        <DeleteAccountSection accessToken={accessToken} onDeleted={onAccountDeleted} />
+      </AccountSection>
     </AccountScreenLayout>
   );
 }
